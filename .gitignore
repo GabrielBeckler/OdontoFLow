@@ -1,0 +1,41 @@
+# Dependencies and build outputs
+node_modules/
+dist/
+src-tauri/target/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Local application data and SQLite transient files
+/local-data/*.db
+/local-data/*.db-shm
+/local-data/*.db-wal
+backups/
+
+# Editors and operating systems
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Dependências
+node_modules/
+
+# Builds e caches do frontend
+dist/
+.vite/
+.cache/
+
+# Builds do Rust e Tauri
+src-tauri/target/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Arquivos temporários do sistema
+.DS_Store
+Thumbs.db
