@@ -1,0 +1,22 @@
+ODONTOFLOW — PACOTE DE IDENTIDADE VISUAL SVG
+
+ARQUIVOS
+01_logo_horizontal_fundo_claro.svg — logo para fundo claro/transparente.
+02_logo_horizontal_fundo_escuro.svg — logo para fundo escuro/transparente.
+03_simbolo_transparente.svg — símbolo isolado.
+04_icone_app_claro.svg — ícone de aplicação para tema claro.
+05_icone_app_escuro.svg — ícone de aplicação para tema escuro.
+06_logo_compacto.svg — logo compacto para sidebar/cabeçalho.
+07_painel_identidade_visual.svg — painel de identidade visual editável.
+
+PALETA
+Verde principal #00B894
+Verde profundo #08796B
+Azul-marinho #0F1F35
+Cinza secundário #718398
+Fundo claro #F6F9FB
+
+TIPOGRAFIA
+Montserrat, com fallback para Inter e Arial. Para consistência de produção, instale Montserrat ou converta textos em curvas no editor vetorial antes de entregar para terceiros.
+
+Os arquivos SVG podem ser editados no Inkscape, Figma, Illustrator ou VS Code. Logos principais possuem fundo transparente. Ícones de aplicação e painel incluem fundos intencionais. Antes de registro de marca ou produção comercial em larga escala, recomenda-se pesquisa de anterioridade e revisão final por designer de marca.
