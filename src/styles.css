@@ -231,11 +231,11 @@ textarea:focus-visible {
   place-items: center;
   width: 32px;
   height: 32px;
-  border-radius: 50%;
+  border-radius:50%;
   background: var(--bg-soft-strong);
   color: var(--selection-text);
   font-weight: 700;
-  font-size: 11px;
+  font-size: 16px;
 }
 .user-chip > svg {
   margin-left: auto;
@@ -1107,7 +1107,9 @@ tbody tr:hover {
   flex: 1;
 }
 .modal-body label {
+  padding: 0 0 3px;
   display: grid;
+  margin-bottom: 7px;
   gap: 6px;
   font-size: 10px;
   font-weight: 600;
