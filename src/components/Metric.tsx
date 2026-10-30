@@ -3,7 +3,6 @@ import type { ReactNode } from "react";
 export default function Metric({
   label,
   value,
-  icon,
   tone,
   sub,
 }: {
@@ -14,11 +13,16 @@ export default function Metric({
   sub: string;
 }) {
   return (
-    <div className="metric-card">
-      <div className={`metric-icon ${tone}`}>{icon}</div>
-      <div className="metric-label">{label}</div>
+    <div className={`metric-card metric-card--${tone}`}>
+      <div className="metric-topline">
+        <span className="metric-label">{label}</span>
+        <span className="metric-dot" aria-hidden="true" />
+      </div>
       <div className="metric-value">{value.toLocaleString("pt-BR")}</div>
-      <div className="metric-sub">{sub}</div>
+      <div className="metric-foot">
+        <span className="metric-accent" aria-hidden="true" />
+        <span className="metric-sub">{sub}</span>
+      </div>
     </div>
   );
 }

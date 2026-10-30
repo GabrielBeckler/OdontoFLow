@@ -372,9 +372,7 @@ export default function App() {
 
   async function confirmOrderDraftDiscard() {
     if (!hasUnsavedOrderChanges()) return true;
-    return confirm(
-      "Há alterações não salvas nesta OS. Deseja descartá-las?",
-    );
+    return confirm("Há alterações não salvas nesta OS. Deseja descartá-las?");
   }
 
   async function closeOrderModal() {
@@ -386,20 +384,19 @@ export default function App() {
     setEditing(order ?? null);
     setOrderMode(order ? mode : "edit");
     setShowReturns(false);
-    const nextDraft: typeof draft =
-      order
-        ? {
-            codigo_os: order.codigo_os,
-            status: order.status,
-            descricao: order.descricao ?? "",
-            municipio_id: order.municipio_id,
-          }
-        : {
-            codigo_os: "",
-            status: "Em andamento",
-            descricao: "",
-            municipio_id: municipalities[0]?.id ?? 0,
-          };
+    const nextDraft: typeof draft = order
+      ? {
+          codigo_os: order.codigo_os,
+          status: order.status,
+          descricao: order.descricao ?? "",
+          municipio_id: order.municipio_id,
+        }
+      : {
+          codigo_os: "",
+          status: "Em andamento",
+          descricao: "",
+          municipio_id: municipalities[0]?.id ?? 0,
+        };
     try {
       let nextItems: Item[];
       let nextReturns: ReturnItem[] = [];
@@ -548,7 +545,9 @@ export default function App() {
               "A OS foi atualizada em outro lugar. Os dados atuais foram carregados; revise-os antes de editar novamente.",
             );
           } catch (refreshError) {
-            setAlert(`Não foi possível recarregar a OS: ${errorText(refreshError)}`);
+            setAlert(
+              `Não foi possível recarregar a OS: ${errorText(refreshError)}`,
+            );
           }
           return;
         }
@@ -577,10 +576,7 @@ export default function App() {
     setOrderMode("edit");
   }
 
-  useEffect(
-    () => () => window.clearTimeout(editSaveLockTimerRef.current),
-    [],
-  );
+  useEffect(() => () => window.clearTimeout(editSaveLockTimerRef.current), []);
 
   async function addReturn(e: React.FormEvent) {
     e.preventDefault();
@@ -604,10 +600,7 @@ export default function App() {
     const prompt = hasUnsavedOrderChanges()
       ? `Há alterações não salvas na OS ${order.codigo_os}. Descartá-las e arquivar a OS?`
       : `Arquivar a OS ${order.codigo_os}? O histórico será preservado.`;
-    if (
-      !(await confirm(prompt))
-    )
-      return;
+    if (!(await confirm(prompt))) return;
     try {
       await archiveOrderInDatabase(order);
       setModal(null);
@@ -770,6 +763,7 @@ export default function App() {
     ["municipios", "Municípios", MapPin],
     ["config", "Configurações", Settings2],
   ];
+  const showPeriodSelector = view !== "config" && view !== "municipios";
 
   return (
     <div className="app-shell" data-theme={theme}>
@@ -781,22 +775,26 @@ export default function App() {
             alt="OdontoFlow"
           />
         </div>
-        <div className="nav-label">MENU PRINCIPAL</div>
-        <nav>
-          {nav.map(([key, label, Icon]) => (
-            <button
-              key={key}
-              className={`nav-item ${view === key ? "active" : ""}`}
-              onClick={() => setView(key)}
-            >
-              <Icon size={18} />
-              <span>{label}</span>
-              {key === "ordens" && (
-                <span className="nav-count">{orders.length}</span>
-              )}
-            </button>
-          ))}
-        </nav>
+
+        <div className="nav-group">
+          <div className="nav-label">Menu principal</div>
+          <nav aria-label="Navegação principal">
+            {nav.map(([key, label, Icon]) => (
+              <button
+                key={key}
+                className={`nav-item ${view === key ? "active" : ""}`}
+                onClick={() => setView(key)}
+              >
+                <Icon size={18} />
+                <span>{label}</span>
+                {key === "ordens" && (
+                  <span className="nav-count">{orders.length}</span>
+                )}
+              </button>
+            ))}
+          </nav>
+        </div>
+
         <div className="sidebar-bottom">
           <div className="local-card">
             <span className="online-dot" />
@@ -815,28 +813,31 @@ export default function App() {
           </div>
         </div>
       </aside>
+
       <main className="main-area">
         <header className="topbar">
-          <div>
+          <div className="topbar-title-wrap">
             <div className="breadcrumbs">
               OdontoFlow <span>/</span> {title}
             </div>
             <h1>{title}</h1>
           </div>
           <div className="top-actions">
-            <button
-              className="period-control"
-              type="button"
-              aria-label={`Selecionar período, atualmente ${formatPeriodLabel(selectedDate, filterMode)}`}
-              onClick={() => {
-                setCalendarDraft(selectedDate);
-                setCalendarOpen(true);
-              }}
-            >
-              <CalendarDays size={16} />
-              <span>{formatPeriodLabel(selectedDate, filterMode)}</span>
-            </button>
-            {filterMode === "day" && (
+            {showPeriodSelector && (
+              <button
+                className="period-control"
+                type="button"
+                aria-label={`Selecionar período, atualmente ${formatPeriodLabel(selectedDate, filterMode)}`}
+                onClick={() => {
+                  setCalendarDraft(selectedDate);
+                  setCalendarOpen(true);
+                }}
+              >
+                <CalendarDays size={16} />
+                <span>{formatPeriodLabel(selectedDate, filterMode)}</span>
+              </button>
+            )}
+            {showPeriodSelector && filterMode === "day" && (
               <button
                 type="button"
                 className="outline-button small"
@@ -883,276 +884,284 @@ export default function App() {
           <div className="loading">Preparando seu espaço de trabalho…</div>
         ) : (
           <>
-            <Suspense fallback={<div className="loading">Carregando tela…</div>}>
-            {view === "dashboard" && (
-              <DashboardPage
-                orders={orders}
-                totalWork={totalWork}
-                countByStatus={countByStatus}
-                totalReturns={totalReturns}
-                municipalityOrders={municipalityOrders}
-                selectedDate={selectedDate}
-                filterMode={filterMode}
-                taskQuantities={taskQuantities}
-                returnStats={returnStats}
-                setView={setView}
-                setTaskFilter={setTaskFilter}
-                openMunicipalityOrders={openMunicipalityOrders}
-                beginOrder={beginOrder}
-              />
-            )}
-            {view === "ordens" && (
-              <OrdensPage
-                orders={orders}
-                tasks={tasks}
-                selectedDate={selectedDate}
-                filterMode={filterMode}
-                query={query}
-                setQuery={setQuery}
-                statusFilter={statusFilter}
-                setStatusFilter={setStatusFilter}
-                taskFilter={taskFilter}
-                setTaskFilter={setTaskFilter}
-                beginOrder={beginOrder}
-                archiveOrder={archiveOrder}
-              />
-            )}
-            {view === "quadro" && (
-              <div className="content">
-                <div className="kanban">
-                  {statuses.map((s) => (
-                    <section
-                      className="kanban-column"
-                      key={s}
-                      onDragOver={(event) => event.preventDefault()}
-                      onDrop={(event) => {
-                        event.preventDefault();
-                        const id = Number(
-                          event.dataTransfer.getData("text/plain"),
-                        );
-                        const order = orders.find(
-                          (candidate) => candidate.id === id,
-                        );
-                        if (order) void moveOrder(order, s);
-                      }}
-                    >
-                      <div className="kanban-title">
-                        <span className={`status-dot ${slug(s)}`} />
-                        <b>{s}</b>
-                        <small>
-                          {orders.filter((o) => o.status === s).length}
-                        </small>
-                        <button
-                          onClick={() => {
-                            setStatusFilter(s);
-                            setView("ordens");
-                          }}
-                        >
-                          •••
-                        </button>
-                      </div>
-                      {orders
-                        .filter((o) => o.status === s)
-                        .map((o) => (
-                          <button
-                            className={`os-card ${movingOrders.includes(o.id) ? "moving" : ""}`}
-                            key={o.id}
-                            draggable={!movingOrders.includes(o.id)}
-                            onDragStart={(event) => {
-                              event.dataTransfer.effectAllowed = "move";
-                              event.dataTransfer.setData(
-                                "text/plain",
-                                String(o.id),
-                              );
-                            }}
-                            onClick={() => void beginOrder(o)}
-                          >
-                            <div className="card-code">
-                              {o.codigo_os}
-                              <span className={`status-pill ${slug(o.status)}`}>
-                                {o.status}
-                              </span>
-                            </div>
-                            <p>{o.municipio}</p>
-                            <div className="card-bottom">
-                              <span>{o.total_trabalhos} trabalhos</span>
-                              <small>
-                                Atualizada {fmtDate(o.atualizada_em)}
-                              </small>
-                            </div>
-                          </button>
-                        ))}
-                    </section>
-                  ))}
-                </div>
-              </div>
-            )}
-            {view === "tarefas" && (
-              <div className="content">
-                <div className="list-toolbar">
-                  <select
-                    className="filter-select wide"
-                    value={taskFilter}
-                    onChange={(e) => setTaskFilter(Number(e.target.value))}
-                  >
-                    <option value={0}>Todas as tarefas</option>
-                    {tasks.map((t) => (
-                      <option value={t.id} key={t.id}>
-                        {t.nome}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    className="filter-select"
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                  >
-                    <option value="">Todos os status</option>
+            <Suspense
+              fallback={<div className="loading">Carregando tela…</div>}
+            >
+              {view === "dashboard" && (
+                <DashboardPage
+                  orders={orders}
+                  totalWork={totalWork}
+                  countByStatus={countByStatus}
+                  totalReturns={totalReturns}
+                  municipalityOrders={municipalityOrders}
+                  selectedDate={selectedDate}
+                  filterMode={filterMode}
+                  taskQuantities={taskQuantities}
+                  returnStats={returnStats}
+                  setView={setView}
+                  setTaskFilter={setTaskFilter}
+                  openMunicipalityOrders={openMunicipalityOrders}
+                  beginOrder={beginOrder}
+                />
+              )}
+              {view === "ordens" && (
+                <OrdensPage
+                  orders={orders}
+                  tasks={tasks}
+                  selectedDate={selectedDate}
+                  filterMode={filterMode}
+                  query={query}
+                  setQuery={setQuery}
+                  statusFilter={statusFilter}
+                  setStatusFilter={setStatusFilter}
+                  taskFilter={taskFilter}
+                  setTaskFilter={setTaskFilter}
+                  beginOrder={beginOrder}
+                  archiveOrder={archiveOrder}
+                />
+              )}
+              {view === "quadro" && (
+                <div className="content">
+                  <div className="kanban">
                     {statuses.map((s) => (
-                      <option key={s}>{s}</option>
+                      <section
+                        className="kanban-column"
+                        key={s}
+                        onDragOver={(event) => event.preventDefault()}
+                        onDrop={(event) => {
+                          event.preventDefault();
+                          const id = Number(
+                            event.dataTransfer.getData("text/plain"),
+                          );
+                          const order = orders.find(
+                            (candidate) => candidate.id === id,
+                          );
+                          if (order) void moveOrder(order, s);
+                        }}
+                      >
+                        <div className="kanban-title">
+                          <span className={`status-dot ${slug(s)}`} />
+                          <b>{s}</b>
+                          <small>
+                            {orders.filter((o) => o.status === s).length}
+                          </small>
+                          <button
+                            onClick={() => {
+                              setStatusFilter(s);
+                              setView("ordens");
+                            }}
+                          >
+                            •••
+                          </button>
+                        </div>
+                        {orders
+                          .filter((o) => o.status === s)
+                          .map((o) => (
+                            <button
+                              className={`os-card ${movingOrders.includes(o.id) ? "moving" : ""}`}
+                              key={o.id}
+                              draggable={!movingOrders.includes(o.id)}
+                              onDragStart={(event) => {
+                                event.dataTransfer.effectAllowed = "move";
+                                event.dataTransfer.setData(
+                                  "text/plain",
+                                  String(o.id),
+                                );
+                              }}
+                              onClick={() => void beginOrder(o)}
+                            >
+                              <div className="card-code">
+                                {o.codigo_os}
+                                <span
+                                  className={`status-pill ${slug(o.status)}`}
+                                >
+                                  {o.status}
+                                </span>
+                              </div>
+                              <p>{o.municipio}</p>
+                              <div className="card-bottom">
+                                <span>{o.total_trabalhos} trabalhos</span>
+                                <small>
+                                  Atualizada {fmtDate(o.atualizada_em)}
+                                </small>
+                              </div>
+                            </button>
+                          ))}
+                      </section>
                     ))}
-                  </select>
-                  <div className="summary-chip">
-                    {taskQuantities
-                      .filter((t) => !taskFilter || taskFilter === t.id)
-                      .reduce((a, t) => a + t.value, 0)}{" "}
-                    trabalhos na data selecionada
                   </div>
                 </div>
-                <section className="panel table-panel">
-                  <div className="panel-head">
-                    <div>
-                      <h3>Detalhamento de produção</h3>
-                      <p>
-                        As quantidades consideram a data de referência de cada
-                        lançamento.
-                      </p>
-                    </div>
-                    <button
-                      className="outline-button"
-                      onClick={() => window.print()}
+              )}
+              {view === "tarefas" && (
+                <div className="content">
+                  <div className="list-toolbar">
+                    <select
+                      className="filter-select wide"
+                      value={taskFilter}
+                      onChange={(e) => setTaskFilter(Number(e.target.value))}
                     >
-                      <ArrowDownToLine size={15} /> Exportar / PDF
-                    </button>
-                  </div>
-                  <OrderTable rows={orders} open={(o) => void beginOrder(o)} />
-                </section>
-              </div>
-            )}
-            {view === "config" && (
-              <div className="content">
-                <section className="panel settings-panel">
-                  <div className="panel-head">
-                    <div>
-                      <h3>Dados e armazenamento</h3>
-                      <p>
-                        O aplicativo usa o mesmo arquivo SQLite configurado no
-                        DBeaver.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="settings-row">
-                    <div className="setting-icon">
-                      <ClipboardList size={18} />
-                    </div>
-                    <div>
-                      <b>Banco SQLite conectado</b>
-                      <p className="db-path">
-                        {currentDatabasePath() || "Nenhum arquivo selecionado"}
-                      </p>
-                    </div>
-                    <button
-                      className="outline-button"
-                      onClick={() => void selectDatabase()}
+                      <option value={0}>Todas as tarefas</option>
+                      {tasks.map((t) => (
+                        <option value={t.id} key={t.id}>
+                          {t.nome}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      className="filter-select"
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
                     >
-                      Selecionar banco
-                    </button>
-                  </div>
-                  <div className="settings-row">
-                    <div className="setting-icon">
-                      <Archive size={18} />
-                    </div>
-                    <div>
-                      <b>Backup e restauração</b>
-                      <p>
-                        {lastBackup
-                          ? `Último backup: ${lastBackup}`
-                          : "Backup automático local a cada hora enquanto o aplicativo estiver aberto."}
-                      </p>
-                    </div>
-                    <button
-                      className="outline-button"
-                      onClick={() => void makeBackup(true)}
-                    >
-                      <ArrowDownToLine size={14} /> Fazer backup
-                    </button>
-                    <button
-                      className="outline-button"
-                      onClick={() => void restoreBackup()}
-                    >
-                      Restaurar
-                    </button>
-                  </div>
-                  <TaskSettings onChanged={refresh} />
-                  <div className="settings-row">
-                    <div className="setting-icon">
-                      <Stethoscope size={18} />
-                    </div>
-                    <div>
-                      <b>Municípios</b>
-                      <p>
-                        {municipalities.length} localidades disponíveis no
-                        cadastro.
-                      </p>
-                    </div>
-                    <button
-                      className="outline-button"
-                      onClick={() => setView("municipios")}
-                    >
-                      Gerenciar municípios
-                    </button>
-                  </div>
-                  <div className="settings-row">
-                    <div className="setting-icon">
-                      <CalendarDays size={18} />
-                    </div>
-                    <div>
-                      <b>Idioma</b>
-                      <p>Português brasileiro</p>
+                      <option value="">Todos os status</option>
+                      {statuses.map((s) => (
+                        <option key={s}>{s}</option>
+                      ))}
+                    </select>
+                    <div className="summary-chip">
+                      {taskQuantities
+                        .filter((t) => !taskFilter || taskFilter === t.id)
+                        .reduce((a, t) => a + t.value, 0)}{" "}
+                      trabalhos na data selecionada
                     </div>
                   </div>
-                  <div className="settings-row">
-                    <div className="setting-icon">
-                      {theme === "dark" ? (
-                        <Moon size={18} />
-                      ) : (
-                        <Sun size={18} />
-                      )}
+                  <section className="panel table-panel">
+                    <div className="panel-head">
+                      <div>
+                        <h3>Detalhamento de produção</h3>
+                        <p>
+                          As quantidades consideram a data de referência de cada
+                          lançamento.
+                        </p>
+                      </div>
+                      <button
+                        className="outline-button"
+                        onClick={() => window.print()}
+                      >
+                        <ArrowDownToLine size={15} /> Exportar / PDF
+                      </button>
                     </div>
-                    <div>
-                      <b>Tema do aplicativo</b>
-                      <p>Preferência salva neste perfil do aplicativo.</p>
+                    <OrderTable
+                      rows={orders}
+                      open={(o) => void beginOrder(o)}
+                    />
+                  </section>
+                </div>
+              )}
+              {view === "config" && (
+                <div className="content">
+                  <section className="panel settings-panel">
+                    <div className="panel-head">
+                      <div>
+                        <h3>Dados e armazenamento</h3>
+                        <p>
+                          O aplicativo usa o mesmo arquivo SQLite configurado no
+                          DBeaver.
+                        </p>
+                      </div>
                     </div>
-                    <button
-                      className="outline-button"
-                      aria-pressed={theme === "dark"}
-                      onClick={() =>
-                        setTheme((current) =>
-                          current === "dark" ? "light" : "dark",
-                        )
-                      }
-                    >
-                      {theme === "dark"
-                        ? "Usar tema claro"
-                        : "Usar tema escuro"}
-                    </button>
-                  </div>
-                </section>
-              </div>
-            )}
-            {view === "municipios" && (
-              <MunicipiosPage onMunicipalitiesChanged={refresh} />
-            )}
+                    <div className="settings-row">
+                      <div className="setting-icon">
+                        <ClipboardList size={18} />
+                      </div>
+                      <div>
+                        <b>Banco SQLite conectado</b>
+                        <p className="db-path">
+                          {currentDatabasePath() ||
+                            "Nenhum arquivo selecionado"}
+                        </p>
+                      </div>
+                      <button
+                        className="outline-button"
+                        onClick={() => void selectDatabase()}
+                      >
+                        Selecionar banco
+                      </button>
+                    </div>
+                    <div className="settings-row">
+                      <div className="setting-icon">
+                        <Archive size={18} />
+                      </div>
+                      <div>
+                        <b>Backup e restauração</b>
+                        <p>
+                          {lastBackup
+                            ? `Último backup: ${lastBackup}`
+                            : "Backup automático local a cada hora enquanto o aplicativo estiver aberto."}
+                        </p>
+                      </div>
+                      <button
+                        className="outline-button"
+                        onClick={() => void makeBackup(true)}
+                      >
+                        <ArrowDownToLine size={14} /> Fazer backup
+                      </button>
+                      <button
+                        className="outline-button"
+                        onClick={() => void restoreBackup()}
+                      >
+                        Restaurar
+                      </button>
+                    </div>
+                    <TaskSettings onChanged={refresh} />
+                    <div className="settings-row">
+                      <div className="setting-icon">
+                        <Stethoscope size={18} />
+                      </div>
+                      <div>
+                        <b>Municípios</b>
+                        <p>
+                          {municipalities.length} localidades disponíveis no
+                          cadastro.
+                        </p>
+                      </div>
+                      <button
+                        className="outline-button"
+                        onClick={() => setView("municipios")}
+                      >
+                        Gerenciar municípios
+                      </button>
+                    </div>
+                    <div className="settings-row">
+                      <div className="setting-icon">
+                        <CalendarDays size={18} />
+                      </div>
+                      <div>
+                        <b>Idioma</b>
+                        <p>Português brasileiro</p>
+                      </div>
+                    </div>
+                    <div className="settings-row">
+                      <div className="setting-icon">
+                        {theme === "dark" ? (
+                          <Moon size={18} />
+                        ) : (
+                          <Sun size={18} />
+                        )}
+                      </div>
+                      <div>
+                        <b>Tema do aplicativo</b>
+                        <p>Preferência salva neste perfil do aplicativo.</p>
+                      </div>
+                      <button
+                        className="outline-button"
+                        aria-pressed={theme === "dark"}
+                        onClick={() =>
+                          setTheme((current) =>
+                            current === "dark" ? "light" : "dark",
+                          )
+                        }
+                      >
+                        {theme === "dark"
+                          ? "Usar tema claro"
+                          : "Usar tema escuro"}
+                      </button>
+                    </div>
+                  </section>
+                </div>
+              )}
+              {view === "municipios" && (
+                <MunicipiosPage onMunicipalitiesChanged={refresh} />
+              )}
             </Suspense>
           </>
         )}
@@ -1288,13 +1297,15 @@ export default function App() {
                     <p className="empty-history">
                       Esta OS não possui lançamentos de trabalho vinculados.
                     </p>
-                  ) : items.map((item, index) => (
-                    <div className="readonly-item" key={item.id ?? index}>
-                      <b>{item.nome}</b>
-                      <span>{item.quantidade} trabalhos</span>
-                      <small>{fmtDate(item.data_referencia)}</small>
-                    </div>
-                  ))}
+                  ) : (
+                    items.map((item, index) => (
+                      <div className="readonly-item" key={item.id ?? index}>
+                        <b>{item.nome}</b>
+                        <span>{item.quantidade} trabalhos</span>
+                        <small>{fmtDate(item.data_referencia)}</small>
+                      </div>
+                    ))
+                  )}
                   {draft.status === "Retorno" && (
                     <div className="section-divider return-heading">
                       <button

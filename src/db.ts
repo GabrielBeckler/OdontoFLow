@@ -133,26 +133,23 @@ async function connectToExistingDatabase(path: string): Promise<Database> {
   return database;
 }
 
-async function chooseDatabasePath(): Promise<string> {
-  const selected = await open({
-    title: "Abrir banco de dados do OdontoFlow",
-    multiple: false,
-    filters: [
-      { name: "Banco SQLite", extensions: ["db", "sqlite", "sqlite3"] },
-    ],
-  });
-  if (!selected || Array.isArray(selected))
+async function resolveStartupDatabasePath(): Promise<string> {
+  const configured = localStorage.getItem(databasePathKey);
+  if (configured) return configured;
+  try {
+    return await invoke<string>("ensure_default_database_path");
+  } catch (error) {
+    console.error("Falha na inicialização do banco padrão do OdontoFlow", error);
     throw new Error(
-      "Selecione o arquivo SQLite criado no DBeaver para continuar.",
+      `Não foi possível inicializar o banco padrão do OdontoFlow: ${String(error)}`,
     );
-  return selected;
+  }
 }
 
 export const db = () => {
   if (connection) return connection;
   const attempt = (async () => {
-    const path =
-      localStorage.getItem(databasePathKey) ?? (await chooseDatabasePath());
+    const path = await resolveStartupDatabasePath();
     const database = await connectToExistingDatabase(path);
     localStorage.setItem(databasePathKey, path);
     return database;

@@ -1,5 +1,6 @@
 use serde::Deserialize;
 use serde_json::Value;
+use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use sqlx::Row;
 use sqlx::{Connection, Sqlite};
 use std::{
@@ -26,6 +27,27 @@ struct SqlStatement {
 
 const MAX_BACKUP_BYTES: usize = 64 * 1024 * 1024;
 const MAX_ORDER_ITEM_QUANTITY: i64 = 1_000_000;
+const DEFAULT_DATABASE_FILE_NAME: &str = "odontoflow.db";
+const REQUIRED_DATABASE_TABLES: &[&str] = &[
+    "municipios",
+    "tipos_tarefa",
+    "ordens_servico",
+    "lancamentos_trabalho",
+    "historico_retornos",
+    "historico_status_os",
+    "historico_alteracoes_os",
+    "auditoria_lancamentos",
+];
+const APP_DATABASE_SCHEMA: &[&str] = &[
+    "CREATE TABLE municipios(id INTEGER PRIMARY KEY, codigo TEXT NOT NULL UNIQUE, nome TEXT NOT NULL UNIQUE, ativo INTEGER NOT NULL CHECK(ativo IN (0,1)))",
+    "CREATE TABLE tipos_tarefa(id INTEGER PRIMARY KEY, nome TEXT NOT NULL UNIQUE, ativo INTEGER NOT NULL CHECK(ativo IN (0,1)))",
+    "CREATE TABLE ordens_servico(id INTEGER PRIMARY KEY, codigo_os TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('Em andamento','Finalizado','Retorno')), descricao TEXT, criada_em TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), atualizada_em TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), arquivada_em TEXT, municipio_id INTEGER NOT NULL REFERENCES municipios(id))",
+    "CREATE TABLE lancamentos_trabalho(id INTEGER PRIMARY KEY, ordem_servico_id INTEGER NOT NULL REFERENCES ordens_servico(id), tipo_tarefa_id INTEGER NOT NULL REFERENCES tipos_tarefa(id), quantidade INTEGER NOT NULL CHECK(quantidade > 0), data_referencia TEXT NOT NULL CHECK(length(data_referencia)=10), criado_em TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), atualizado_em TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))) ",
+    "CREATE TABLE historico_retornos(id INTEGER PRIMARY KEY, ordem_servico_id INTEGER NOT NULL REFERENCES ordens_servico(id), motivo TEXT NOT NULL CHECK(motivo IN ('Escaneamento incorreto','Reavaliar','Falta de espaço Protético','Falta arquivo','Outros')), justificativa TEXT, registrado_em TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), CHECK(motivo <> 'Outros' OR (justificativa IS NOT NULL AND length(trim(justificativa)) > 0)))",
+    "CREATE TABLE historico_status_os(id INTEGER PRIMARY KEY, ordem_servico_id INTEGER NOT NULL REFERENCES ordens_servico(id), de_status TEXT, para_status TEXT NOT NULL, alterado_em TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))) ",
+    "CREATE TABLE historico_alteracoes_os(id INTEGER PRIMARY KEY, ordem_servico_id INTEGER, operacao TEXT NOT NULL, valores_anteriores TEXT, valores_novos TEXT, registrado_em TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))) ",
+    "CREATE TABLE auditoria_lancamentos(id INTEGER PRIMARY KEY, lancamento_id INTEGER, operacao TEXT NOT NULL, valores_anteriores TEXT, valores_novos TEXT, registrado_em TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))) ",
+];
 
 const BACKUP_TABLES: &[(&str, &[&str])] = &[
     ("municipios", &["id", "codigo", "nome", "ativo"]),
@@ -486,6 +508,84 @@ mod tests {
             pool.execute(sql).await.unwrap();
         }
         pool
+    }
+
+    #[tokio::test]
+    async fn default_database_bootstrap_creates_schema_and_reuses_it() {
+        let root = std::env::temp_dir().join(format!(
+            "odontoflow-bootstrap-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let db_path = root.join("odontoflow.db");
+
+        ensure_default_database(&db_path).await.unwrap();
+        assert!(validate_database_file(&db_path).await.unwrap());
+
+        ensure_default_database(&db_path).await.unwrap();
+        assert!(validate_database_file(&db_path).await.unwrap());
+
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(SqliteConnectOptions::new().filename(&db_path).foreign_keys(true))
+            .await
+            .unwrap();
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM sqlite_master WHERE type='table'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert!(count >= 8);
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[tokio::test]
+    async fn invalid_default_database_is_rejected() {
+        let root = std::env::temp_dir().join(format!(
+            "odontoflow-invalid-default-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let db_path = root.join("odontoflow.db");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(&db_path, b"not-a-database").unwrap();
+
+        assert!(ensure_default_database(&db_path).await.is_err());
+        assert!(std::fs::read(&db_path).is_ok());
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[tokio::test]
+    async fn bootstrap_uses_schema_transaction_without_partial_reset() {
+        let root = std::env::temp_dir().join(format!(
+            "odontoflow-schema-transaction-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let db_path = root.join("odontoflow.db");
+
+        ensure_default_database(&db_path).await.unwrap();
+        let mut conn = sqlx::sqlite::SqliteConnection::connect(db_path.to_string_lossy().as_ref())
+            .await
+            .unwrap();
+        let tables: Vec<String> = sqlx::query_scalar("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+            .fetch_all(&mut conn)
+            .await
+            .unwrap();
+        assert!(tables.iter().any(|name| name == "municipios"));
+        assert!(tables.iter().any(|name| name == "ordens_servico"));
+
+        let _ = std::fs::remove_dir_all(root);
     }
 
     #[test]
@@ -1413,6 +1513,133 @@ fn write_atomically(path: &Path, contents: &[u8]) -> Result<(), String> {
     write_result.map_err(|_| "Não foi possível gravar o backup selecionado.".to_owned())
 }
 
+async fn validate_database_file(path: &Path) -> Result<bool, String> {
+    if !path.exists() {
+        return Ok(false);
+    }
+    let options = SqliteConnectOptions::new()
+        .filename(path)
+        .create_if_missing(false)
+        .foreign_keys(true);
+    let pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(options)
+        .await
+        .map_err(|error| format!("Não foi possível abrir o banco em {}: {error}", path.display()))?;
+    let integrity: String = sqlx::query_scalar("PRAGMA integrity_check")
+        .fetch_one(&pool)
+        .await
+        .map_err(|error| format!("O banco em {} falhou na validação de integridade: {error}", path.display()))?;
+    if integrity.trim().to_ascii_lowercase() != "ok" {
+        return Err(format!(
+            "O banco em {} está inválido: PRAGMA integrity_check retornou '{}'.",
+            path.display(),
+            integrity
+        ));
+    }
+    let tables: Vec<String> = sqlx::query_scalar(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
+    )
+    .fetch_all(&pool)
+    .await
+    .map_err(|error| format!("Não foi possível ler os metadados de {}: {error}", path.display()))?;
+    let missing = REQUIRED_DATABASE_TABLES
+        .iter()
+        .filter(|table| !tables.iter().any(|name| name == **table))
+        .copied()
+        .collect::<Vec<_>>();
+    if !missing.is_empty() {
+        return Err(format!(
+            "O banco em {} está incompleto: faltam as tabelas {}.",
+            path.display(),
+            missing.join(", ")
+        ));
+    }
+    Ok(true)
+}
+
+async fn ensure_default_database(path: &Path) -> Result<(), String> {
+    if path.exists() {
+        match validate_database_file(path).await {
+            Ok(true) => return Ok(()),
+            Ok(false) => return Err(format!("O banco em {} não foi encontrado.", path.display())),
+            Err(error) => return Err(format!("Banco padrão inválido em {}: {error}", path.display())),
+        }
+    }
+
+    let parent = path.parent().ok_or_else(|| {
+        format!("O diretório do banco padrão em {} não é válido.", path.display())
+    })?;
+    fs::create_dir_all(parent)
+        .map_err(|error| format!("Não foi possível criar o diretório {}: {error}", parent.display()))?;
+
+    let temporary = parent.join(format!(
+        ".{}.{}.tmp",
+        path.file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("odontoflow"),
+        std::process::id()
+    ));
+    let temp_pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(
+            SqliteConnectOptions::new()
+                .filename(&temporary)
+                .create_if_missing(true)
+                .foreign_keys(true),
+        )
+        .await
+        .map_err(|error| format!("Não foi possível preparar o banco em {}: {error}", temporary.display()))?;
+    let mut transaction = temp_pool.begin().await.map_err(|error| error.to_string())?;
+    for statement in APP_DATABASE_SCHEMA {
+        sqlx::query(statement)
+            .execute(&mut *transaction)
+            .await
+            .map_err(|error| format!("Falha ao criar schema em {}: {error}", temporary.display()))?;
+    }
+    transaction.commit().await.map_err(|error| error.to_string())?;
+    if validate_database_file(&temporary).await? {
+        if path.exists() {
+            let existing = validate_database_file(path).await;
+            if let Ok(true) = existing {
+                return Ok(());
+            }
+        }
+        if let Err(error) = fs::rename(&temporary, path) {
+            if error.kind() == std::io::ErrorKind::AlreadyExists {
+                let _ = fs::remove_file(&temporary);
+                return match validate_database_file(path).await {
+                    Ok(true) => Ok(()),
+                    Ok(false) => Err(format!("O banco em {} foi criado em paralelo e não pôde ser validado.", path.display())),
+                    Err(err) => Err(format!("Banco padrão em {} foi criado em paralelo, mas não é válido: {err}", path.display())),
+                };
+            }
+            let _ = fs::remove_file(&temporary);
+            return Err(format!("Não foi possível completar a criação do banco em {}: {error}", path.display()));
+        }
+    } else {
+        let _ = fs::remove_file(&temporary);
+        return Err(format!("O banco em {} foi criado, mas sua estrutura final não passou na validação.", path.display()));
+    }
+
+    validate_database_file(path).await.map_err(|error| {
+        format!("O banco em {} foi criado, mas não passou na validação final: {error}", path.display())
+    })?;
+    Ok(())
+}
+
+#[tauri::command]
+fn ensure_default_database_path(app: AppHandle) -> Result<String, String> {
+    let path = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| error.to_string())?
+        .join(DEFAULT_DATABASE_FILE_NAME);
+    let runtime = tokio::runtime::Runtime::new().map_err(|error| error.to_string())?;
+    runtime.block_on(async { ensure_default_database(&path).await })?;
+    Ok(path.to_string_lossy().to_string())
+}
+
 fn create_internal_backup(app: &AppHandle, contents: &str) -> Result<PathBuf, String> {
     validate_backup_contents(contents)?;
     let folder = app
@@ -1545,7 +1772,8 @@ pub fn run() {
             read_consistent_database_snapshot,
             restore_database_snapshot,
             execute_sqlite_transaction,
-            migrate_duplicate_order_codes_command
+            migrate_duplicate_order_codes_command,
+            ensure_default_database_path
         ])
         .run(tauri::generate_context!())
         .expect("falha ao iniciar OdontoFlow");
