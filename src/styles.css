@@ -216,6 +216,15 @@ textarea:focus-visible {
   align-items: center;
   gap: 9px;
   border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  width: 100%;
+  cursor: pointer;
+}
+.user-chip:hover {
+  border-color: var(--border-subtle);
+  background: rgba(136, 160, 149, 0.04);
 }
 .avatar {
   display: grid;
@@ -1673,6 +1682,27 @@ tbody tr:hover {
   cursor: not-allowed;
 }
 
+.profile-backdrop {
+  z-index: 30;
+  justify-content: center;
+  align-items: center;
+  padding: 18px;
+}
+.profile-modal {
+  width: min(420px, calc(100vw - 32px));
+  height: auto;
+  max-height: min(420px, calc(100vh - 32px));
+  margin: auto;
+  border-radius: 12px;
+  box-shadow: 0 24px 70px #0b1d1580;
+}
+.profile-error {
+  display: block;
+  margin-top: 8px;
+  color: #c35f4d;
+  font-size: 10px;
+  font-weight: 600;
+}
 .notification-backdrop {
   z-index: 30;
   justify-content: center;

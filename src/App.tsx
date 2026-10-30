@@ -83,6 +83,21 @@ const reasons = [
   "Falta arquivo",
   "Outros",
 ];
+const USER_NAME_STORAGE_KEY = "odontoflow.user.displayName";
+const DEFAULT_USER_NAME = "Usuário local";
+
+const getStoredUserName = () => {
+  const value = localStorage.getItem(USER_NAME_STORAGE_KEY)?.trim() ?? "";
+  return value || DEFAULT_USER_NAME;
+};
+
+const getUserInitials = (name: string) => {
+  const value = name.trim();
+  if (!value) return "UL";
+  const parts = value.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+};
 
 const localDateInput = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -158,6 +173,13 @@ export default function App() {
   const [theme, setTheme] = useState<"light" | "dark">(() =>
     localStorage.getItem("odontoflow.theme") === "dark" ? "dark" : "light",
   );
+  const [displayName, setDisplayName] = useState<string>(() =>
+    getStoredUserName(),
+  );
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileDraft, setProfileDraft] = useState(displayName);
+  const [profileError, setProfileError] = useState("");
+  const profileInputRef = useRef<HTMLInputElement>(null);
   const [editing, setEditing] = useState<Order | null>(null);
   const orderDraftBaselineRef = useRef("");
   const [items, setItems] = useState<Item[]>([]);
@@ -223,11 +245,31 @@ export default function App() {
     void refresh();
   }, [selectedDate, filterMode, statusFilter, query, taskFilter, view]);
   useEffect(() => {
+    localStorage.setItem(USER_NAME_STORAGE_KEY, displayName.trim() || DEFAULT_USER_NAME);
+  }, [displayName]);
+  useEffect(() => {
     if (alert) {
       const timer = setTimeout(() => setAlert(""), 5000);
       return () => clearTimeout(timer);
     }
   }, [alert]);
+  useEffect(() => {
+    if (!profileOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setProfileOpen(false);
+        setProfileError("");
+      }
+    };
+    const focusTimer = window.setTimeout(() => {
+      profileInputRef.current?.focus();
+    }, 0);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.clearTimeout(focusTimer);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [profileOpen]);
   async function makeBackup(manual = false) {
     try {
       const contents = await createDatabaseSnapshot();
@@ -299,6 +341,26 @@ export default function App() {
     } finally {
       setNotificationsLoading(false);
     }
+  }
+
+  function openProfileEditor() {
+    setProfileDraft(displayName);
+    setProfileError("");
+    setProfileOpen(true);
+  }
+
+  function saveProfile(event: { preventDefault: () => void }) {
+    event.preventDefault();
+    const trimmed = profileDraft.trim();
+    if (!trimmed) {
+      setProfileError("Informe um nome de exibição válido.");
+      profileInputRef.current?.focus();
+      return;
+    }
+    setDisplayName(trimmed);
+    setProfileError("");
+    setProfileOpen(false);
+    setAlert("Perfil atualizado.");
   }
 
   useEffect(() => {
@@ -803,14 +865,19 @@ export default function App() {
               <small>Dados neste computador</small>
             </div>
           </div>
-          <div className="user-chip">
-            <span className="avatar">GB</span>
+          <button
+            type="button"
+            className="user-chip"
+            onClick={openProfileEditor}
+            aria-label="Editar perfil do usuário"
+          >
+            <span className="avatar">{getUserInitials(displayName)}</span>
             <span>
-              <b>Gabriel Beckler</b>
+              <b>{displayName}</b>
               <small>Administrador local</small>
             </span>
             <ChevronDown size={15} />
-          </div>
+          </button>
         </div>
       </aside>
 
@@ -1166,6 +1233,79 @@ export default function App() {
           </>
         )}
       </main>
+      {profileOpen && (
+        <div
+          className="modal-backdrop profile-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setProfileOpen(false);
+              setProfileError("");
+            }
+          }}
+        >
+          <form
+            className="modal profile-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="profile-title"
+            onSubmit={saveProfile}
+          >
+            <div className="modal-head">
+              <div>
+                <span className="eyebrow">PERFIL</span>
+                <h2 id="profile-title">Editar perfil</h2>
+                <p>Personalize o nome exibido no seu espaço de trabalho.</p>
+              </div>
+              <button
+                className="icon-button"
+                type="button"
+                aria-label="Fechar edição de perfil"
+                onClick={() => {
+                  setProfileOpen(false);
+                  setProfileError("");
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <label htmlFor="display-name-input">Nome de exibição</label>
+              <input
+                id="display-name-input"
+                ref={profileInputRef}
+                type="text"
+                value={profileDraft}
+                onChange={(event) => {
+                  setProfileDraft(event.target.value);
+                  if (profileError) setProfileError("");
+                }}
+                placeholder="Digite seu nome"
+                autoFocus
+                maxLength={80}
+              />
+              {profileError && (
+                <small className="profile-error">{profileError}</small>
+              )}
+            </div>
+            <div className="modal-footer">
+              <span />
+              <button
+                className="outline-button"
+                type="button"
+                onClick={() => {
+                  setProfileOpen(false);
+                  setProfileError("");
+                }}
+              >
+                Cancelar
+              </button>
+              <button className="primary-button" type="submit">
+                Salvar alterações
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
       {calendarOpen && (
         <div
           className="modal-backdrop calendar-backdrop"
