@@ -1,5 +1,6 @@
 import { db } from "../db";
 import type { StatusOS } from "../db";
+import statusCountsSql from "./dashboard-status-counts.sql?raw";
 
 export type TaskQuantity = { id: number; name: string; value: number };
 export type StatusCount = { name: StatusOS; value: number };
@@ -69,10 +70,10 @@ export async function listStatusCounts(
   date: string,
   mode: FilterMode = "day",
 ): Promise<StatusCount[]> {
-  const { start, end } = periodBounds(date, mode);
+  const { end } = periodBounds(date, mode);
   return (await db()).select<StatusCount[]>(
-    `SELECT h.para_status name,COUNT(*) value FROM ordens_servico o JOIN historico_status_os h ON h.id=(SELECT h2.id FROM historico_status_os h2 WHERE h2.ordem_servico_id=o.id AND h2.alterado_em >= $1 AND h2.alterado_em < $2 ORDER BY h2.alterado_em DESC,h2.id DESC LIMIT 1) WHERE o.arquivada_em IS NULL GROUP BY h.para_status`,
-    [start, end],
+    statusCountsSql,
+    [end],
   );
 }
 

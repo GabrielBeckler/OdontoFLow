@@ -24,6 +24,7 @@ Backups automáticos em JSON são feitos ao iniciar e a cada hora enquanto o apl
 ## Fluxos implementados
 
 - Cadastro e edição de OS com código único, município, status, descrição e itens de trabalho.
+- Quantidades por lançamento validadas como inteiros de 1 a 1.000.000, limite operacional amplo definido para impedir valores acidentais ou inválidos.
 - Histórico de status, auditoria dos lançamentos e ocorrências de retorno sem reabrir automaticamente a OS.
 - Arquivamento confirmado, preservando os relacionamentos e os históricos.
 - Dashboard mensal, quadro por status, pesquisa e análise de produção por data de referência.

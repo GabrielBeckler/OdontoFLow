@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
-import TaskSettings from "./components/TaskSettings";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import OrderTable from "./components/OrderTable";
-import DashboardPage from "./pages/dashboard/DashboardPage";
-import OrdensPage from "./pages/ordens-servico/OrdensPage";
+const TaskSettings = lazy(() => import("./components/TaskSettings"));
+const DashboardPage = lazy(() => import("./pages/dashboard/DashboardPage"));
+const OrdensPage = lazy(() => import("./pages/ordens-servico/OrdensPage"));
+const MunicipiosPage = lazy(() => import("./pages/Municipios/MunicipiosPage"));
 import {
   Activity,
   Archive,
@@ -25,7 +26,6 @@ import {
 import lightLogo from "../OdontoFlow_Identidade_Visual_SVG/01_logo_horizontal_fundo_claro.svg";
 import darkLogo from "../OdontoFlow_Identidade_Visual_SVG/02_logo_horizontal_fundo_escuro.svg";
 import { confirm } from "@tauri-apps/plugin-dialog";
-import { open, save } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import {
   changeDatabase,
@@ -59,13 +59,13 @@ import {
   addReturn as saveReturn,
   archiveOrder as archiveOrderInDatabase,
   changeOrderStatus,
+  MAX_ORDER_ITEM_QUANTITY,
   saveOrder as saveOrderInDatabase,
 } from "./services/ordens-servico";
 import {
   createDatabaseSnapshot,
   restoreDatabaseSnapshot,
 } from "./services/database/backup";
-import MunicipiosPage from "./pages/Municipios/MunicipiosPage";
 import type { Municipality } from "./types/municipality";
 
 type View =
@@ -149,6 +149,9 @@ export default function App() {
   const [showReturns, setShowReturns] = useState(false);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
+  const [editSaveLocked, setEditSaveLocked] = useState(false);
+  const editSaveLockedRef = useRef(false);
+  const editSaveLockTimerRef = useRef<number | undefined>(undefined);
   const [movingOrders, setMovingOrders] = useState<number[]>([]);
   const movingOrdersRef = useRef(new Set<number>());
   const refreshIdRef = useRef(0);
@@ -156,6 +159,7 @@ export default function App() {
     localStorage.getItem("odontoflow.theme") === "dark" ? "dark" : "light",
   );
   const [editing, setEditing] = useState<Order | null>(null);
+  const orderDraftBaselineRef = useRef("");
   const [items, setItems] = useState<Item[]>([]);
   const [returns, setReturns] = useState<ReturnItem[]>([]);
   const [alert, setAlert] = useState("");
@@ -228,13 +232,10 @@ export default function App() {
     try {
       const contents = await createDatabaseSnapshot();
       if (manual) {
-        const path = await save({
-          title: "Salvar backup do OdontoFlow",
-          defaultPath: `odontoflow-${today()}.json`,
-          filters: [{ name: "Backup JSON", extensions: ["json"] }],
+        const saved = await invoke<boolean>("write_backup_to_path", {
+          contents,
         });
-        if (!path) return;
-        await invoke("write_backup_to_path", { path, contents });
+        if (!saved) return;
         setLastBackup(new Date().toLocaleString("pt-BR"));
         setAlert("Backup salvo com sucesso.");
       } else {
@@ -246,21 +247,9 @@ export default function App() {
     }
   }
   async function restoreBackup() {
-    const path = await open({
-      title: "Selecionar backup do OdontoFlow",
-      multiple: false,
-      filters: [{ name: "Backup JSON", extensions: ["json"] }],
-    });
-    if (!path || Array.isArray(path)) return;
-    if (
-      !(await confirm(
-        "A restauração substituirá os dados atuais. Antes disso, o sistema criará uma cópia de segurança local. Deseja continuar?",
-      ))
-    )
-      return;
     try {
-      const raw = await invoke<string>("read_backup", { path });
-      await restoreDatabaseSnapshot(raw);
+      const restored = await restoreDatabaseSnapshot();
+      if (!restored) return;
       setLastBackup(new Date().toLocaleString("pt-BR"));
       setAlert("Backup restaurado.");
       void refresh();
@@ -290,6 +279,9 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("odontoflow.theme", theme);
   }, [theme]);
+
+  const normalizeNotificationStatus = (status: string | null | undefined) =>
+    status?.trim() ?? "";
 
   async function openNotifications() {
     setNotificationsOpen(true);
@@ -368,11 +360,33 @@ export default function App() {
     setView("ordens");
   }
 
+  const orderEditorState = (nextDraft: typeof draft, nextItems: Item[]) =>
+    JSON.stringify({ draft: nextDraft, items: nextItems });
+
+  function hasUnsavedOrderChanges() {
+    return (
+      orderMode === "edit" &&
+      orderEditorState(draft, items) !== orderDraftBaselineRef.current
+    );
+  }
+
+  async function confirmOrderDraftDiscard() {
+    if (!hasUnsavedOrderChanges()) return true;
+    return confirm(
+      "Há alterações não salvas nesta OS. Deseja descartá-las?",
+    );
+  }
+
+  async function closeOrderModal() {
+    if (saving || !(await confirmOrderDraftDiscard())) return;
+    setModal(null);
+  }
+
   async function beginOrder(order?: Order, mode: "view" | "edit" = "view") {
     setEditing(order ?? null);
     setOrderMode(order ? mode : "edit");
     setShowReturns(false);
-    setDraft(
+    const nextDraft: typeof draft =
       order
         ? {
             codigo_os: order.codigo_os,
@@ -385,30 +399,35 @@ export default function App() {
             status: "Em andamento",
             descricao: "",
             municipio_id: municipalities[0]?.id ?? 0,
-          },
-    );
+          };
     try {
+      let nextItems: Item[];
+      let nextReturns: ReturnItem[] = [];
+      let nextHistory: StatusChange[] = [];
       if (order) {
         const [orderItems, orderReturns, history] = await Promise.all([
           getItems(order.id),
           getReturns(order.id),
           getStatusHistory(order.id),
         ]);
-        setItems(orderItems);
-        setReturns(orderReturns);
-        setStatusHistory(history);
+        nextItems = orderItems;
+        nextReturns = orderReturns;
+        nextHistory = history;
       } else {
-        setItems([
+        nextItems = [
           {
             tipo_tarefa_id: tasks[0]?.id ?? 0,
             nome: tasks[0]?.nome ?? "",
             quantidade: 1,
             data_referencia: today(),
           },
-        ]);
-        setReturns([]);
-        setStatusHistory([]);
+        ];
       }
+      setDraft(nextDraft);
+      setItems(nextItems);
+      setReturns(nextReturns);
+      setStatusHistory(nextHistory);
+      orderDraftBaselineRef.current = orderEditorState(nextDraft, nextItems);
       setModal("order");
     } catch (error) {
       setAlert(`Não foi possível abrir a OS: ${errorText(error)}`);
@@ -439,15 +458,22 @@ export default function App() {
   async function saveOrder(e: React.FormEvent) {
     e.preventDefault();
     if (orderMode === "view") return;
+    if (editSaveLockedRef.current) return;
     if (savingRef.current) return;
     if (
       !draft.codigo_os.trim() ||
       !draft.municipio_id ||
-      items.length === 0 ||
-      items.some((x) => !x.tipo_tarefa_id || Number(x.quantidade) < 1)
+      (!editing && items.length === 0) ||
+      items.some(
+        (x) =>
+          !x.tipo_tarefa_id ||
+          !Number.isSafeInteger(Number(x.quantidade)) ||
+          Number(x.quantidade) < 1 ||
+          Number(x.quantidade) > MAX_ORDER_ITEM_QUANTITY,
+      )
     ) {
       setAlert(
-        "Preencha o código, município e ao menos um lançamento com quantidade válida.",
+        `Preencha o código e município e informe ao menos um lançamento com quantidade inteira entre 1 e ${MAX_ORDER_ITEM_QUANTITY.toLocaleString("pt-BR")}.`,
       );
       return;
     }
@@ -510,6 +536,22 @@ export default function App() {
           "O SQLite confirmou a gravação, mas não foi possível recarregar os dados. Feche e abra a OS para conferir.",
         );
       } else {
+        if (
+          editing &&
+          String(err).includes("alterada depois que você a abriu")
+        ) {
+          try {
+            const current = await getOrderById(editing.id);
+            if (!current) throw new Error("A OS não está mais disponível.");
+            await beginOrder(current, "view");
+            setAlert(
+              "A OS foi atualizada em outro lugar. Os dados atuais foram carregados; revise-os antes de editar novamente.",
+            );
+          } catch (refreshError) {
+            setAlert(`Não foi possível recarregar a OS: ${errorText(refreshError)}`);
+          }
+          return;
+        }
         setAlert(
           `Não foi possível salvar as alterações da OS: ${errorText(err)}`,
         );
@@ -520,6 +562,26 @@ export default function App() {
       setSaving(false);
     }
   }
+
+  function enterOrderEditMode() {
+    if (editSaveLockedRef.current) return;
+    editSaveLockedRef.current = true;
+    setEditSaveLocked(true);
+    window.clearTimeout(editSaveLockTimerRef.current);
+    editSaveLockTimerRef.current = window.setTimeout(() => {
+      editSaveLockedRef.current = false;
+      editSaveLockTimerRef.current = undefined;
+      setEditSaveLocked(false);
+    }, 1000);
+    setAlert("");
+    setOrderMode("edit");
+  }
+
+  useEffect(
+    () => () => window.clearTimeout(editSaveLockTimerRef.current),
+    [],
+  );
+
   async function addReturn(e: React.FormEvent) {
     e.preventDefault();
     if (!editing) return;
@@ -539,10 +601,11 @@ export default function App() {
     }
   }
   async function archiveOrder(order: Order) {
+    const prompt = hasUnsavedOrderChanges()
+      ? `Há alterações não salvas na OS ${order.codigo_os}. Descartá-las e arquivar a OS?`
+      : `Arquivar a OS ${order.codigo_os}? O histórico será preservado.`;
     if (
-      !(await confirm(
-        `Arquivar a OS ${order.codigo_os}? O histórico será preservado.`,
-      ))
+      !(await confirm(prompt))
     )
       return;
     try {
@@ -591,12 +654,31 @@ export default function App() {
   }
 
   function cancelOrderEdit() {
-    if (!editing) {
-      setModal(null);
-      return;
-    }
-    void beginOrder(editing, "view");
+    void (async () => {
+      if (saving) return;
+      if (!(await confirmOrderDraftDiscard())) return;
+      if (orderMode === "view") {
+        setModal(null);
+        return;
+      }
+      if (!editing) {
+        setModal(null);
+        return;
+      }
+      await beginOrder(editing, "view");
+    })();
   }
+  useEffect(() => {
+    if (modal !== "order") return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        cancelOrderEdit();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [modal, saving, orderMode, editing, draft, items]);
   function printOrder() {
     document.body.classList.add("print-single");
     window.print();
@@ -610,30 +692,42 @@ export default function App() {
     { name: string; value: number; id: number }[]
   >([]);
   useEffect(() => {
+    let isCurrent = true;
     (async () => {
       try {
-        setTaskQuantities(await listTaskQuantities(selectedDate, filterMode));
+        const rows = await listTaskQuantities(selectedDate, filterMode);
+        if (isCurrent) setTaskQuantities(rows);
       } catch (error) {
-        setAlert(
-          `Não foi possível atualizar os indicadores de produção: ${errorText(error)}`,
-        );
+        if (isCurrent)
+          setAlert(
+            `Não foi possível atualizar os indicadores de produção: ${errorText(error)}`,
+          );
       }
     })();
+    return () => {
+      isCurrent = false;
+    };
   }, [selectedDate, filterMode, orders]);
   const totalWork = taskQuantities.reduce((s, x) => s + x.value, 0);
   const [statusStats, setStatusStats] = useState<
     { name: StatusOS; value: number }[]
   >([]);
   useEffect(() => {
+    let isCurrent = true;
     (async () => {
       try {
-        setStatusStats(await listStatusCounts(selectedDate, filterMode));
+        const rows = await listStatusCounts(selectedDate, filterMode);
+        if (isCurrent) setStatusStats(rows);
       } catch (error) {
-        setAlert(
-          `Não foi possível atualizar os indicadores de status: ${errorText(error)}`,
-        );
+        if (isCurrent)
+          setAlert(
+            `Não foi possível atualizar os indicadores de status: ${errorText(error)}`,
+          );
       }
     })();
+    return () => {
+      isCurrent = false;
+    };
   }, [selectedDate, filterMode, orders]);
   const countByStatus = statuses.map((s) => ({
     name: s,
@@ -643,15 +737,21 @@ export default function App() {
     { name: string; value: number }[]
   >([]);
   useEffect(() => {
+    let isCurrent = true;
     (async () => {
       try {
-        setReturnStats(await listReturnCounts(selectedDate, filterMode));
+        const rows = await listReturnCounts(selectedDate, filterMode);
+        if (isCurrent) setReturnStats(rows);
       } catch (error) {
-        setAlert(
-          `Não foi possível atualizar os indicadores de retornos: ${errorText(error)}`,
-        );
+        if (isCurrent)
+          setAlert(
+            `Não foi possível atualizar os indicadores de retornos: ${errorText(error)}`,
+          );
       }
     })();
+    return () => {
+      isCurrent = false;
+    };
   }, [selectedDate, filterMode, orders]);
   const totalReturns = returnStats.reduce((a, b) => a + b.value, 0);
   const title = {
@@ -783,6 +883,7 @@ export default function App() {
           <div className="loading">Preparando seu espaço de trabalho…</div>
         ) : (
           <>
+            <Suspense fallback={<div className="loading">Carregando tela…</div>}>
             {view === "dashboard" && (
               <DashboardPage
                 orders={orders}
@@ -1052,6 +1153,7 @@ export default function App() {
             {view === "municipios" && (
               <MunicipiosPage onMunicipalitiesChanged={refresh} />
             )}
+            </Suspense>
           </>
         )}
       </main>
@@ -1121,12 +1223,16 @@ export default function App() {
         <div
           className="modal-backdrop"
           onMouseDown={(e) => {
-            if (!saving && e.target === e.currentTarget) setModal(null);
+            if (e.target === e.currentTarget) void closeOrderModal();
           }}
         >
           <form
             className="modal order-modal"
             onSubmit={saveOrder}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="order-modal-title"
+            tabIndex={-1}
             aria-busy={saving}
           >
             <div className="modal-head">
@@ -1138,7 +1244,7 @@ export default function App() {
                       ? "VISUALIZAÇÃO"
                       : "EDIÇÃO"}
                 </span>
-                <h2>
+                <h2 id="order-modal-title">
                   {editing ? editing.codigo_os : "Cadastrar ordem de serviço"}
                 </h2>
                 <p>
@@ -1178,7 +1284,11 @@ export default function App() {
                   <div className="section-divider">
                     <h3>Lançamentos de trabalho</h3>
                   </div>
-                  {items.map((item, index) => (
+                  {items.length === 0 ? (
+                    <p className="empty-history">
+                      Esta OS não possui lançamentos de trabalho vinculados.
+                    </p>
+                  ) : items.map((item, index) => (
                     <div className="readonly-item" key={item.id ?? index}>
                       <b>{item.nome}</b>
                       <span>{item.quantidade} trabalhos</span>
@@ -1237,6 +1347,7 @@ export default function App() {
                       <input
                         autoFocus
                         value={draft.codigo_os}
+                        maxLength={120}
                         onChange={(e) =>
                           setDraft({ ...draft, codigo_os: e.target.value })
                         }
@@ -1284,6 +1395,7 @@ export default function App() {
                       Descrição / observações
                       <textarea
                         value={draft.descricao}
+                        maxLength={10_000}
                         onChange={(e) =>
                           setDraft({ ...draft, descricao: e.target.value })
                         }
@@ -1348,6 +1460,8 @@ export default function App() {
                       <input
                         type="number"
                         min="1"
+                        max={MAX_ORDER_ITEM_QUANTITY}
+                        step="1"
                         value={it.quantidade}
                         onChange={(e) =>
                           changeItem(i, "quantidade", Number(e.target.value))
@@ -1449,14 +1563,14 @@ export default function App() {
                   <button
                     type="button"
                     className="outline-button"
-                    onClick={() => setModal(null)}
+                    onClick={() => void closeOrderModal()}
                   >
                     Sair
                   </button>
                   <button
                     type="button"
                     className="primary-button"
-                    onClick={() => setOrderMode("edit")}
+                    onClick={enterOrderEditMode}
                   >
                     Editar
                   </button>
@@ -1485,9 +1599,13 @@ export default function App() {
                   <button
                     type="submit"
                     className="primary-button"
-                    disabled={saving}
+                    disabled={saving || editSaveLocked}
                   >
-                    {saving ? "Salvando…" : "Salvar alterações"}
+                    {saving
+                      ? "Salvando…"
+                      : editSaveLocked
+                        ? "Aguarde…"
+                        : "Salvar alterações"}
                   </button>
                 </>
               )}
@@ -1611,7 +1729,7 @@ export default function App() {
               ) : (
                 (["Retorno", "Em andamento"] as const).map((status) => {
                   const rows = notifications.filter(
-                    (row) => row.status === status,
+                    (row) => normalizeNotificationStatus(row.status) === status,
                   );
                   if (!rows.length) return null;
                   return (
@@ -1627,7 +1745,7 @@ export default function App() {
                           onClick={() => void openNotifiedOrder(row)}
                         >
                           <span
-                            className={`notification-status ${status === "Retorno" ? "return" : "progress"}`}
+                            className={`notification-status ${status === "Retorno" ? "return" : "in-progress"}`}
                           >
                             {status}
                           </span>

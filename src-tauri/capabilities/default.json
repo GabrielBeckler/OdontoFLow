@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Permissões da janela principal OdontoFlow",
   "windows": ["main"],
-  "permissions": ["core:default", "sql:default", "sql:allow-execute", "dialog:default", "dialog:allow-save", "dialog:allow-open"]
+  "permissions": ["core:default", "sql:default", "dialog:allow-message", "dialog:allow-open"]
 }

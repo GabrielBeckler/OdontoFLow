@@ -48,7 +48,7 @@ button {
 }
 .brand-logo {
   display: block;
-  width: min(176px, 100%);
+  width: min(200px, 100%);
   height: auto;
   max-height: 48px;
   object-fit: contain;
@@ -216,7 +216,9 @@ button {
   gap: 6px;
   color: #74827a;
   cursor: pointer;
-  font: 11px system-ui, sans-serif;
+  font:
+    11px system-ui,
+    sans-serif;
 }
 .period-control span {
   color: #43534b;
@@ -384,7 +386,9 @@ button {
   gap: 16px;
   min-width: 0;
 }
-.panel-head > div { min-width: 0; }
+.panel-head > div {
+  min-width: 0;
+}
 .panel-head h3 {
   margin: 0;
   font:
@@ -1539,8 +1543,12 @@ tbody tr:hover {
   box-shadow: 0 24px 70px #0b1d1580;
   outline: none;
 }
-.notification-body { display: block; }
-.notification-section { margin-bottom: 22px; }
+.notification-body {
+  display: block;
+}
+.notification-section {
+  margin-bottom: 22px;
+}
 .notification-section h3 {
   display: flex;
   align-items: center;
@@ -1572,61 +1580,234 @@ tbody tr:hover {
   border-radius: 8px;
   cursor: pointer;
 }
-.notification-row:hover { background: #f0f6f2; border-color: #c8ded1; }
-.notification-row > b { align-self: center; }
-.notification-row > span:nth-of-type(2) { grid-column: 2 / 4; color: #65756b; font-size: 11px; }
-.notification-row small { grid-column: 1 / 4; color: #85928a; font-size: 10px; }
-.notification-status { grid-row: span 2; align-self: center; font-size: 10px; font-weight: 700; }
-.notification-status.return { color: #bc684f; }
-.notification-status.progress { color: #438166; }
-.notification-chevron { position: absolute; right: 12px; top: 50%; transform: translateY(-50%) rotate(-90deg); color: #84948a; }
-.notification-empty { padding: 50px 12px; text-align: center; color: #75847b; }
-.notification-error { display: grid; justify-items: start; gap: 12px; color: #a1483b; }
+.notification-row:hover {
+  background: #f0f6f2;
+  border-color: #c8ded1;
+}
+.notification-row > b {
+  align-self: center;
+}
+.notification-row > span:nth-of-type(2) {
+  grid-column: 2 / 4;
+  color: #65756b;
+  font-size: 11px;
+}
+.notification-row small {
+  grid-column: 1 / 4;
+  color: #85928a;
+  font-size: 10px;
+}
+.notification-status {
+  grid-row: span 2;
+  align-self: center;
+  font-size: 10px;
+  font-weight: 700;
+}
+.notification-status.return {
+  color: #bc684f;
+}
+.notification-status.in-progress {
+  color: #438166;
+}
+.notification-chevron {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%) rotate(-90deg);
+  color: #84948a;
+}
+.notification-empty {
+  padding: 50px 12px;
+  text-align: center;
+  color: #75847b;
+}
+.notification-error {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  color: #a1483b;
+}
 .app-shell[data-theme="dark"] .notification-modal,
-.app-shell[data-theme="dark"] .notification-row { background: #202a25; color: #dce7e0; }
-.app-shell[data-theme="dark"] .notification-row { border-color: #35443b; }
-.app-shell[data-theme="dark"] .notification-row:hover { background: #2a3931; border-color: #526b5b; }
+.app-shell[data-theme="dark"] .notification-row {
+  background: #202a25;
+  color: #dce7e0;
+}
+.app-shell[data-theme="dark"] .notification-row {
+  border-color: #35443b;
+}
+.app-shell[data-theme="dark"] .notification-row:hover {
+  background: #2a3931;
+  border-color: #526b5b;
+}
 .app-shell[data-theme="dark"] .notification-row > span:nth-of-type(2),
 .app-shell[data-theme="dark"] .notification-row small,
-.app-shell[data-theme="dark"] .notification-empty { color: #a9b8ae; }
-.app-shell[data-theme="dark"] .notification-section h3 span { background: #2e4337; color: #a8dfbe; }
-.app-shell[data-theme="dark"] .notification-error { color: #ffb8a9; }
-
-.municipality-dashboard-panel { min-width: 0; }
-.municipality-bars { width: 100%; min-height: 220px; margin: 10px 0; }
-.municipality-counts { display: grid; gap: 7px; max-height: 265px; overflow: auto; padding-right: 3px; }
-.municipality-count-row { padding: 8px 9px; border: 1px solid #edf1ee; border-radius: 8px; }
-.municipality-total { display: flex; width: 100%; align-items: center; gap: 8px; padding: 0; border: 0; background: none; color: #394a40; text-align: left; cursor: pointer; }
-.municipality-total i { width: 9px; height: 9px; border-radius: 50%; flex: none; }
-.municipality-total b { flex: 1; }
-.municipality-total strong { font-size: 13px; }
-.municipality-status-counts { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
-.municipality-status-counts button { padding: 4px 7px; border: 1px solid #e8eeea; border-radius: 12px; background: #f8faf8; color: #68776e; font-size: 9px; cursor: pointer; }
-.municipality-status-counts button:hover { border-color: #a9ceb9; background: #edf6f0; color: #276b4e; }
-.municipality-status-counts b { margin-left: 3px; }
-.task-settings { margin-bottom: 20px; padding: 18px; }
-.task-settings-form { display: flex; align-items: end; gap: 10px; margin: 12px 0 16px; }
-.task-settings-form label { display: grid; flex: 1; gap: 6px; color: #66746c; font-size: 10px; font-weight: 600; }
-.task-settings-form input { min-height: 37px; padding: 8px 10px; border: 1px solid #e0e7e3; border-radius: 6px; color: #3d4e44; background: #fff; }
-.task-settings-list { display: grid; }
-.task-settings-row { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 14px; padding: 9px 2px; border-top: 1px solid #edf0ee; color: #4c5d53; font-size: 11px; }
-.task-settings-row small { color: #839188; }
-.task-settings-error { color: #ac5145; font-size: 11px; }
-.app-shell[data-theme="dark"] .municipality-count-row,
-.app-shell[data-theme="dark"] .task-settings-row { border-color: #35413b; }
-.app-shell[data-theme="dark"] .municipality-total { color: #dce7e0; }
-.app-shell[data-theme="dark"] .municipality-status-counts button { color: #c1cec5; border-color: #3c4c42; background: #27332d; }
-.app-shell[data-theme="dark"] .municipality-status-counts button:hover { color: #d9f1e1; border-color: #587764; background: #304238; }
-.app-shell[data-theme="dark"] .task-settings-form label,
-.app-shell[data-theme="dark"] .task-settings-row { color: #c6d2ca; }
-.app-shell[data-theme="dark"] .task-settings-form input { color: #e1e9e4; border-color: #3a4840; background: #18201c; }
-.app-shell[data-theme="dark"] .task-settings-row small { color: #9ba9a1; }
-.app-shell[data-theme="dark"] .task-settings-error { color: #ffb8a9; }
-@media (max-width: 760px) {
-  .task-settings-form { align-items: stretch; flex-direction: column; }
+.app-shell[data-theme="dark"] .notification-empty {
+  color: #a9b8ae;
+}
+.app-shell[data-theme="dark"] .notification-section h3 span {
+  background: #2e4337;
+  color: #a8dfbe;
+}
+.app-shell[data-theme="dark"] .notification-error {
+  color: #ffb8a9;
 }
 
-.calendar-backdrop { justify-content: center; align-items: center; }
+.municipality-dashboard-panel {
+  min-width: 0;
+}
+.municipality-bars {
+  width: 100%;
+  min-height: 220px;
+  margin: 10px 0;
+}
+.municipality-counts {
+  display: grid;
+  gap: 7px;
+  max-height: 265px;
+  overflow: auto;
+  padding-right: 3px;
+}
+.municipality-count-row {
+  padding: 8px 9px;
+  border: 1px solid #edf1ee;
+  border-radius: 8px;
+}
+.municipality-total {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #394a40;
+  text-align: left;
+  cursor: pointer;
+}
+.municipality-total i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: none;
+}
+.municipality-total b {
+  flex: 1;
+}
+.municipality-total strong {
+  font-size: 13px;
+}
+.municipality-status-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 8px;
+}
+.municipality-status-counts button {
+  padding: 4px 7px;
+  border: 1px solid #e8eeea;
+  border-radius: 12px;
+  background: #f8faf8;
+  color: #68776e;
+  font-size: 9px;
+  cursor: pointer;
+}
+.municipality-status-counts button:hover {
+  border-color: #a9ceb9;
+  background: #edf6f0;
+  color: #276b4e;
+}
+.municipality-status-counts b {
+  margin-left: 3px;
+}
+.task-settings {
+  margin-bottom: 20px;
+  padding: 18px;
+}
+.task-settings-form {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+  margin: 12px 0 16px;
+}
+.task-settings-form label {
+  display: grid;
+  flex: 1;
+  gap: 6px;
+  color: #66746c;
+  font-size: 10px;
+  font-weight: 600;
+}
+.task-settings-form input {
+  min-height: 37px;
+  padding: 8px 10px;
+  border: 1px solid #e0e7e3;
+  border-radius: 6px;
+  color: #3d4e44;
+  background: #fff;
+}
+.task-settings-list {
+  display: grid;
+}
+.task-settings-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 9px 2px;
+  border-top: 1px solid #edf0ee;
+  color: #4c5d53;
+  font-size: 11px;
+}
+.task-settings-row small {
+  color: #839188;
+}
+.task-settings-error {
+  color: #ac5145;
+  font-size: 11px;
+}
+.app-shell[data-theme="dark"] .municipality-count-row,
+.app-shell[data-theme="dark"] .task-settings-row {
+  border-color: #35413b;
+}
+.app-shell[data-theme="dark"] .municipality-total {
+  color: #dce7e0;
+}
+.app-shell[data-theme="dark"] .municipality-status-counts button {
+  color: #c1cec5;
+  border-color: #3c4c42;
+  background: #27332d;
+}
+.app-shell[data-theme="dark"] .municipality-status-counts button:hover {
+  color: #d9f1e1;
+  border-color: #587764;
+  background: #304238;
+}
+.app-shell[data-theme="dark"] .task-settings-form label,
+.app-shell[data-theme="dark"] .task-settings-row {
+  color: #c6d2ca;
+}
+.app-shell[data-theme="dark"] .task-settings-form input {
+  color: #e1e9e4;
+  border-color: #3a4840;
+  background: #18201c;
+}
+.app-shell[data-theme="dark"] .task-settings-row small {
+  color: #9ba9a1;
+}
+.app-shell[data-theme="dark"] .task-settings-error {
+  color: #ffb8a9;
+}
+@media (max-width: 760px) {
+  .task-settings-form {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+.calendar-backdrop {
+  justify-content: center;
+  align-items: center;
+}
 .calendar-modal {
   width: min(390px, calc(100vw - 32px));
   height: auto;
@@ -1639,26 +1820,55 @@ tbody tr:hover {
   display: grid;
   gap: 8px;
 }
-.calendar-body label { color: #66746c; font-size: 11px; font-weight: 600; }
-.calendar-body input { min-height: 42px; font-size: 14px; }
+.calendar-body label {
+  color: #66746c;
+  font-size: 11px;
+  font-weight: 600;
+}
+.calendar-body input {
+  min-height: 42px;
+  font-size: 14px;
+}
 .app-shell[data-theme="dark"] .period-control {
   color: #a9b8ae;
   border-color: #35443b;
   background: #202a25;
 }
-.app-shell[data-theme="dark"] .period-control span { color: #dce7e0; }
+.app-shell[data-theme="dark"] .period-control span {
+  color: #dce7e0;
+}
 
 @media print {
-  :root, body, #root, .app-shell, .main-area, .content, .modal-backdrop, .modal,
-  .panel, .metric-card, .table-scroll, table, thead, tbody, tr, th, td,
-  .order-readonly, .order-readonly-grid > div, .history-item, .total-line {
+  :root,
+  body,
+  #root,
+  .app-shell,
+  .main-area,
+  .content,
+  .modal-backdrop,
+  .modal,
+  .panel,
+  .metric-card,
+  .table-scroll,
+  table,
+  thead,
+  tbody,
+  tr,
+  th,
+  td,
+  .order-readonly,
+  .order-readonly-grid > div,
+  .history-item,
+  .total-line {
     color: #17211b !important;
     background: #fff !important;
     border-color: #c7cec9 !important;
     box-shadow: none !important;
     text-shadow: none !important;
   }
-  .notification-backdrop { display: none !important; }
+  .notification-backdrop {
+    display: none !important;
+  }
   .app-shell *,
   .app-shell[data-theme="dark"] * {
     color: #17211b !important;
@@ -1671,8 +1881,13 @@ tbody tr:hover {
   .app-shell[data-theme="dark"] .total-line,
   .app-shell[data-theme="dark"] table,
   .app-shell[data-theme="dark"] th,
-  .app-shell[data-theme="dark"] td { background: #fff !important; border-color: #c7cec9 !important; }
-  a { color: #145b40 !important; }
+  .app-shell[data-theme="dark"] td {
+    background: #fff !important;
+    border-color: #c7cec9 !important;
+  }
+  a {
+    color: #145b40 !important;
+  }
 }
 .app-shell[data-theme="dark"] .municipality-error {
   background: #3a2825;

@@ -23,6 +23,7 @@ export type Item = {
   nome: string;
   quantidade: number;
   data_referencia: string;
+  atualizado_em?: string | null;
 };
 export type ReturnItem = {
   id: number;
@@ -97,19 +98,10 @@ async function connectToExistingDatabase(path: string): Promise<Database> {
     );
   if (hasInlineUnique || uniqueCodeIndex) {
     try {
-      const tableNames = [
-        "municipios",
-        "tipos_tarefa",
-        "ordens_servico",
-        "lancamentos_trabalho",
-        "historico_retornos",
-        "historico_status_os",
-        "historico_alteracoes_os",
-        "auditoria_lancamentos",
-      ];
-      const data: Record<string, unknown[]> = {};
-      for (const table of tableNames)
-        data[table] = await database.select(`SELECT * FROM ${table}`);
+      const data = await invoke<Record<string, unknown[]>>(
+        "read_consistent_database_snapshot",
+        { db: database.path },
+      );
       const contents = JSON.stringify({
         format: "odontoflow-backup",
         version: 1,
@@ -273,13 +265,13 @@ export async function getOrderById(id: number): Promise<Order | undefined> {
 }
 export async function listNotificationOrders(): Promise<NotificationOrder[]> {
   return (await db()).select<NotificationOrder[]>(
-    `SELECT o.id,o.codigo_os,o.status,m.nome municipio,
+    `SELECT o.id,o.codigo_os,TRIM(o.status) AS status,m.nome municipio,
       (SELECT MIN(l.data_referencia) FROM lancamentos_trabalho l WHERE l.ordem_servico_id=o.id) data_referencia,
       (SELECT MAX(h.registrado_em) FROM historico_retornos h WHERE h.ordem_servico_id=o.id) prioridade_data
      FROM ordens_servico o JOIN municipios m ON m.id=o.municipio_id
-     WHERE o.arquivada_em IS NULL AND o.status IN ('Em andamento','Retorno')
-     ORDER BY CASE WHEN o.status='Retorno' THEN 0 ELSE 1 END,
-       CASE WHEN o.status='Retorno' THEN COALESCE((SELECT MAX(h.registrado_em) FROM historico_retornos h WHERE h.ordem_servico_id=o.id),o.atualizada_em)
+     WHERE o.arquivada_em IS NULL AND TRIM(o.status) IN ('Em andamento','Retorno')
+     ORDER BY CASE WHEN TRIM(o.status)='Retorno' THEN 0 ELSE 1 END,
+       CASE WHEN TRIM(o.status)='Retorno' THEN COALESCE((SELECT MAX(h.registrado_em) FROM historico_retornos h WHERE h.ordem_servico_id=o.id),o.atualizada_em)
             ELSE COALESCE((SELECT MIN(l.data_referencia) FROM lancamentos_trabalho l WHERE l.ordem_servico_id=o.id),o.atualizada_em) END ASC,
        o.atualizada_em ASC`,
   );
@@ -290,7 +282,7 @@ export const listTasks = async () =>
   );
 export const getItems = async (id: number) =>
   (await db()).select<Item[]>(
-    "SELECT l.id,l.tipo_tarefa_id,t.nome,l.quantidade,l.data_referencia FROM lancamentos_trabalho l JOIN tipos_tarefa t ON t.id=l.tipo_tarefa_id WHERE l.ordem_servico_id=$1 ORDER BY t.nome",
+    "SELECT l.id,l.tipo_tarefa_id,t.nome,l.quantidade,l.data_referencia,l.atualizado_em FROM lancamentos_trabalho l JOIN tipos_tarefa t ON t.id=l.tipo_tarefa_id WHERE l.ordem_servico_id=$1 ORDER BY t.nome",
     [id],
   );
 export const getReturns = async (id: number) =>
