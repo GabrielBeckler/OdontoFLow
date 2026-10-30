@@ -1,4 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="110" fill="#2563eb"/>
-  <path d="M256 100 L256 412 M100 256 L412 256" stroke="#ffffff" stroke-width="64" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 100 100" role="img" aria-labelledby="title desc">
+  <title id="title">Símbolo OdontoFlow</title>
+  <desc id="desc">Símbolo isolado da marca OdontoFlow.</desc>
+  <defs>
+    <linearGradient id="teal" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00B894"/>
+      <stop offset="100%" stop-color="#08796B"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(5 7) scale(1.08)">
+    <g stroke-linecap="round" stroke-linejoin="round">
+      <path d="M50 9 L29 9 L12 27 L19 57 L35 69 L43 43 L51 57 L64 69 L82 28 L65 12 L50 22 Z" fill="none" stroke="url(#teal)" stroke-width="3.2"/>
+      <path d="M29 9 L43 31 L19 42 M12 27 L43 55 M43 31 L65 12 M43 31 L51 57 M50 22 L82 28 M51 57 L64 69 M19 42 L35 69 M43 55 L64 69 M65 12 L68 42 L82 28" fill="none" stroke="url(#teal)" stroke-width="2.25"/>
+      <g fill="#0F1F35" stroke="#FFFFFF" stroke-width="0.8">
+        <circle cx="31" cy="37" r="3.3"/>
+        <circle cx="43" cy="31" r="3.3"/>
+        <circle cx="51" cy="43" r="3.3"/>
+        <circle cx="68" cy="42" r="3.3"/>
+        <circle cx="35" cy="69" r="3.3"/>
+      </g>
+      <circle cx="64" cy="69" r="3.1" fill="#00B894"/>
+    </g>
+  </g>
 </svg>

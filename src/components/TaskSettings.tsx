@@ -1,8 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import type { Task } from "../db";
-import { createTask, listAllTasks, setTaskActive, taskErrorMessage } from "../services/tipos-tarefa";
+import {
+  createTask,
+  listAllTasks,
+  setTaskActive,
+  taskErrorMessage,
+} from "../services/tipos-tarefa";
 
-export default function TaskSettings({ onChanged }: { onChanged: () => Promise<void> }) {
+export default function TaskSettings({
+  onChanged,
+}: {
+  onChanged: () => Promise<void>;
+}) {
   const [rows, setRows] = useState<Task[]>([]);
   const [name, setName] = useState("");
   const [error, setError] = useState("");
@@ -127,4 +136,3 @@ export default function TaskSettings({ onChanged }: { onChanged: () => Promise<v
     </section>
   );
 }
-

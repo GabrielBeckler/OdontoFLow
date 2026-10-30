@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import { MapPin, Plus, RotateCcw, X } from "lucide-react";
 import {
   listAllMunicipalities,
@@ -173,7 +179,9 @@ export default function MunicipiosPage({ onMunicipalitiesChanged }: Props) {
                         disabled={busyIds.includes(municipality.id)}
                         onClick={() => void toggleActive(municipality)}
                       >
-                        {busyIds.includes(municipality.id) ? "Salvando…" : municipality.ativo === 1 ? (
+                        {busyIds.includes(municipality.id) ? (
+                          "Salvando…"
+                        ) : municipality.ativo === 1 ? (
                           <>
                             <X size={14} /> Desativar
                           </>

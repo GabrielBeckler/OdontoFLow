@@ -16,12 +16,14 @@ import {
   MapPin,
   Plus,
   Settings2,
+  Stethoscope,
   Sun,
   Moon,
-  Stethoscope,
   Trash2,
   X,
 } from "lucide-react";
+import lightLogo from "../OdontoFlow_Identidade_Visual_SVG/01_logo_horizontal_fundo_claro.svg";
+import darkLogo from "../OdontoFlow_Identidade_Visual_SVG/02_logo_horizontal_fundo_escuro.svg";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
@@ -84,6 +86,8 @@ const reasons = [
 
 const localDateInput = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+const startOfMonth = (date: Date) =>
+  new Date(date.getFullYear(), date.getMonth(), 1);
 const today = () => localDateInput(new Date());
 const fmtDate = (s: string) =>
   s ? new Date(s).toLocaleDateString("pt-BR") : "—";
@@ -91,6 +95,16 @@ const fmtReferenceDate = (s: string) => {
   const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
   return dateOnly ? `${dateOnly[3]}/${dateOnly[2]}/${dateOnly[1]}` : fmtDate(s);
 };
+const fmtMonthLabel = (s: string) => {
+  const [year, month] = s.split("-").map(Number);
+  if (!year || !month) return "Mês atual";
+  return new Date(year, month - 1, 1).toLocaleDateString("pt-BR", {
+    month: "long",
+    year: "numeric",
+  });
+};
+const formatPeriodLabel = (date: string, mode: "day" | "month") =>
+  mode === "day" ? fmtReferenceDate(date) : fmtMonthLabel(date);
 const errorText = (e: unknown) => {
   const message = e instanceof Error ? e.message : String(e);
   if (
@@ -106,8 +120,13 @@ const errorText = (e: unknown) => {
 export default function App() {
   const now = new Date();
   const [view, setView] = useState<View>("dashboard");
-  const [selectedDate, setSelectedDate] = useState(localDateInput(now));
-  const [calendarDraft, setCalendarDraft] = useState(localDateInput(now));
+  const [filterMode, setFilterMode] = useState<"day" | "month">("month");
+  const [selectedDate, setSelectedDate] = useState(() =>
+    localDateInput(startOfMonth(now)),
+  );
+  const [calendarDraft, setCalendarDraft] = useState(() =>
+    localDateInput(startOfMonth(now)),
+  );
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -160,18 +179,20 @@ export default function App() {
         view === "tarefas"
           ? listTaskOrders({
               date: selectedDate,
+              mode: filterMode,
               status: statusFilter,
               task: taskFilter,
             })
           : listOrders({
               date: selectedDate,
+              mode: filterMode,
               status: view === "quadro" ? "" : statusFilter,
               query: view === "quadro" ? "" : query,
               task: view === "quadro" ? 0 : taskFilter,
             }),
         listTasks(),
         listMunicipalities(),
-        listMunicipalityOrderCounts(selectedDate),
+        listMunicipalityOrderCounts(selectedDate, filterMode),
       ]);
       if (requestId !== refreshIdRef.current) return;
       setOrders(o);
@@ -196,7 +217,7 @@ export default function App() {
   }
   useEffect(() => {
     void refresh();
-  }, [selectedDate, statusFilter, query, taskFilter, view]);
+  }, [selectedDate, filterMode, statusFilter, query, taskFilter, view]);
   useEffect(() => {
     if (alert) {
       const timer = setTimeout(() => setAlert(""), 5000);
@@ -409,8 +430,8 @@ export default function App() {
     field: keyof Item,
     value: string | number,
   ) {
-    setItems(
-      (current) => current.map((item, i) =>
+    setItems((current) =>
+      current.map((item, i) =>
         i === index ? { ...item, [field]: value } : item,
       ),
     );
@@ -591,14 +612,14 @@ export default function App() {
   useEffect(() => {
     (async () => {
       try {
-        setTaskQuantities(await listTaskQuantities(selectedDate));
+        setTaskQuantities(await listTaskQuantities(selectedDate, filterMode));
       } catch (error) {
         setAlert(
           `Não foi possível atualizar os indicadores de produção: ${errorText(error)}`,
         );
       }
     })();
-  }, [selectedDate, orders]);
+  }, [selectedDate, filterMode, orders]);
   const totalWork = taskQuantities.reduce((s, x) => s + x.value, 0);
   const [statusStats, setStatusStats] = useState<
     { name: StatusOS; value: number }[]
@@ -606,14 +627,14 @@ export default function App() {
   useEffect(() => {
     (async () => {
       try {
-        setStatusStats(await listStatusCounts(selectedDate));
+        setStatusStats(await listStatusCounts(selectedDate, filterMode));
       } catch (error) {
         setAlert(
           `Não foi possível atualizar os indicadores de status: ${errorText(error)}`,
         );
       }
     })();
-  }, [selectedDate, orders]);
+  }, [selectedDate, filterMode, orders]);
   const countByStatus = statuses.map((s) => ({
     name: s,
     value: statusStats.find((x) => x.name === s)?.value ?? 0,
@@ -624,14 +645,14 @@ export default function App() {
   useEffect(() => {
     (async () => {
       try {
-        setReturnStats(await listReturnCounts(selectedDate));
+        setReturnStats(await listReturnCounts(selectedDate, filterMode));
       } catch (error) {
         setAlert(
           `Não foi possível atualizar os indicadores de retornos: ${errorText(error)}`,
         );
       }
     })();
-  }, [selectedDate, orders]);
+  }, [selectedDate, filterMode, orders]);
   const totalReturns = returnStats.reduce((a, b) => a + b.value, 0);
   const title = {
     dashboard: "Visão geral",
@@ -654,13 +675,11 @@ export default function App() {
     <div className="app-shell" data-theme={theme}>
       <aside className="sidebar">
         <div className="brand">
-          <span className="brand-icon">
-            <Stethoscope size={22} />
-          </span>
-          <span>
-            odonto<span className="brand-green">flow</span>
-            <small>GESTÃO DE DESIGN DENTÁRIO</small>
-          </span>
+          <img
+            className="brand-logo"
+            src={theme === "dark" ? darkLogo : lightLogo}
+            alt="OdontoFlow"
+          />
         </div>
         <div className="nav-label">MENU PRINCIPAL</div>
         <nav>
@@ -708,15 +727,29 @@ export default function App() {
             <button
               className="period-control"
               type="button"
-              aria-label={`Selecionar data, atualmente ${fmtReferenceDate(selectedDate)}`}
+              aria-label={`Selecionar período, atualmente ${formatPeriodLabel(selectedDate, filterMode)}`}
               onClick={() => {
                 setCalendarDraft(selectedDate);
                 setCalendarOpen(true);
               }}
             >
               <CalendarDays size={16} />
-              <span>{fmtReferenceDate(selectedDate)}</span>
+              <span>{formatPeriodLabel(selectedDate, filterMode)}</span>
             </button>
+            {filterMode === "day" && (
+              <button
+                type="button"
+                className="outline-button small"
+                onClick={() => {
+                  setFilterMode("month");
+                  const monthStart = startOfMonth(new Date(selectedDate));
+                  setSelectedDate(localDateInput(monthStart));
+                  setCalendarDraft(localDateInput(monthStart));
+                }}
+              >
+                Ver mês
+              </button>
+            )}
             <button
               ref={notificationButtonRef}
               className="icon-button"
@@ -752,19 +785,34 @@ export default function App() {
           <>
             {view === "dashboard" && (
               <DashboardPage
-                orders={orders} totalWork={totalWork} countByStatus={countByStatus}
-                totalReturns={totalReturns} municipalityOrders={municipalityOrders}
-                selectedDate={selectedDate} taskQuantities={taskQuantities}
-                returnStats={returnStats} setView={setView} setTaskFilter={setTaskFilter}
-                openMunicipalityOrders={openMunicipalityOrders} beginOrder={beginOrder}
+                orders={orders}
+                totalWork={totalWork}
+                countByStatus={countByStatus}
+                totalReturns={totalReturns}
+                municipalityOrders={municipalityOrders}
+                selectedDate={selectedDate}
+                filterMode={filterMode}
+                taskQuantities={taskQuantities}
+                returnStats={returnStats}
+                setView={setView}
+                setTaskFilter={setTaskFilter}
+                openMunicipalityOrders={openMunicipalityOrders}
+                beginOrder={beginOrder}
               />
             )}
             {view === "ordens" && (
               <OrdensPage
-                orders={orders} tasks={tasks} selectedDate={selectedDate}
-                query={query} setQuery={setQuery} statusFilter={statusFilter}
-                setStatusFilter={setStatusFilter} taskFilter={taskFilter}
-                setTaskFilter={setTaskFilter} beginOrder={beginOrder}
+                orders={orders}
+                tasks={tasks}
+                selectedDate={selectedDate}
+                filterMode={filterMode}
+                query={query}
+                setQuery={setQuery}
+                statusFilter={statusFilter}
+                setStatusFilter={setStatusFilter}
+                taskFilter={taskFilter}
+                setTaskFilter={setTaskFilter}
+                beginOrder={beginOrder}
                 archiveOrder={archiveOrder}
               />
             )}
@@ -1023,6 +1071,7 @@ export default function App() {
               event.preventDefault();
               if (!calendarDraft) return;
               setSelectedDate(calendarDraft);
+              setFilterMode("day");
               setCalendarOpen(false);
             }}
           >

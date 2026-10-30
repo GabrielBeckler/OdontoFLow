@@ -36,7 +36,10 @@ export type StatusChange = {
   para_status: StatusOS;
   alterado_em: string;
 };
-export type NotificationOrder = Pick<Order, "id" | "codigo_os" | "status" | "municipio"> & {
+export type NotificationOrder = Pick<
+  Order,
+  "id" | "codigo_os" | "status" | "municipio"
+> & {
   data_referencia: string | null;
   prioridade_data: string | null;
 };
@@ -89,12 +92,19 @@ async function connectToExistingDatabase(path: string): Promise<Database> {
     .toLowerCase()
     .replace(/[\r\n\t]/g, " ")
     .split(",")
-    .some((column) => column.includes("codigo_os") && column.includes("unique"));
+    .some(
+      (column) => column.includes("codigo_os") && column.includes("unique"),
+    );
   if (hasInlineUnique || uniqueCodeIndex) {
     try {
       const tableNames = [
-        "municipios", "tipos_tarefa", "ordens_servico", "lancamentos_trabalho",
-        "historico_retornos", "historico_status_os", "historico_alteracoes_os",
+        "municipios",
+        "tipos_tarefa",
+        "ordens_servico",
+        "lancamentos_trabalho",
+        "historico_retornos",
+        "historico_status_os",
+        "historico_alteracoes_os",
         "auditoria_lancamentos",
       ];
       const data: Record<string, unknown[]> = {};
@@ -107,14 +117,25 @@ async function connectToExistingDatabase(path: string): Promise<Database> {
         data,
       });
       await invoke("create_backup", { contents });
-      const migrated = await invoke<boolean>("migrate_duplicate_order_codes_command", {
-        db: database.path,
-      });
-      if (migrated) console.info("SQLite: códigos de OS agora podem se repetir; backup pré-migração criado.");
+      const migrated = await invoke<boolean>(
+        "migrate_duplicate_order_codes_command",
+        {
+          db: database.path,
+        },
+      );
+      if (migrated)
+        console.info(
+          "SQLite: códigos de OS agora podem se repetir; backup pré-migração criado.",
+        );
     } catch (error) {
-      console.error("Falha na migração segura para códigos de OS duplicados", error);
+      console.error(
+        "Falha na migração segura para códigos de OS duplicados",
+        error,
+      );
       await database.close();
-      throw new Error(`Não foi possível atualizar o esquema de OS. O backup foi preservado. ${String(error)}`);
+      throw new Error(
+        `Não foi possível atualizar o esquema de OS. O backup foi preservado. ${String(error)}`,
+      );
     }
   }
   return database;
@@ -176,22 +197,49 @@ export async function changeDatabase(): Promise<string | null> {
   return selected;
 }
 
+type FilterMode = "day" | "month";
+
+function periodWindow(date: string, mode: FilterMode = "day") {
+  const [year, month, day] = date.split("-").map(Number);
+  if (mode === "month") {
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 1);
+    return {
+      start: startDate.toISOString(),
+      end: endDate.toISOString(),
+      dateStart: `${year}-${String(month).padStart(2, "0")}-01`,
+      dateEnd: `${new Date(year, month, 1).getFullYear()}-${String(new Date(year, month, 1).getMonth() + 1).padStart(2, "0")}-01`,
+    };
+  }
+  const startDate = new Date(year, month - 1, day);
+  const endDate = new Date(year, month - 1, day + 1);
+  return {
+    start: startDate.toISOString(),
+    end: endDate.toISOString(),
+    dateStart: date,
+    dateEnd: `${new Date(year, month - 1, day + 1).getFullYear()}-${String(new Date(year, month - 1, day + 1).getMonth() + 1).padStart(2, "0")}-${String(new Date(year, month - 1, day + 1).getDate()).padStart(2, "0")}`,
+  };
+}
+
 export async function listOrders(filters: {
   date: string;
+  mode?: FilterMode;
   status?: string;
   query?: string;
   task?: number;
 }): Promise<Order[]> {
   const d = await db();
-  const [year, month, day] = filters.date.split("-").map(Number);
-  const start = new Date(year, month - 1, day).toISOString();
-  const end = new Date(year, month - 1, day + 1).toISOString();
+  const { start, end, dateStart, dateEnd } = periodWindow(
+    filters.date,
+    filters.mode ?? "day",
+  );
   return d.select<Order[]>(
-    `SELECT o.*,m.nome municipio,COALESCE(SUM(l.quantidade),0) total_trabalhos,GROUP_CONCAT(DISTINCT t.nome) task_names FROM ordens_servico o JOIN municipios m ON m.id=o.municipio_id LEFT JOIN lancamentos_trabalho l ON l.ordem_servico_id=o.id AND l.data_referencia=$3 LEFT JOIN tipos_tarefa t ON t.id=l.tipo_tarefa_id WHERE o.arquivada_em IS NULL AND o.criada_em >= $1 AND o.criada_em < $2 AND ($4='' OR o.status=$4) AND ($5='' OR o.codigo_os LIKE '%'||$5||'%' OR m.nome LIKE '%'||$5||'%') AND ($6=0 OR EXISTS(SELECT 1 FROM lancamentos_trabalho x WHERE x.ordem_servico_id=o.id AND x.tipo_tarefa_id=$6 AND x.data_referencia=$3)) GROUP BY o.id ORDER BY o.atualizada_em DESC`,
+    `SELECT o.*,m.nome municipio,COALESCE(SUM(l.quantidade),0) total_trabalhos,GROUP_CONCAT(DISTINCT t.nome) task_names FROM ordens_servico o JOIN municipios m ON m.id=o.municipio_id LEFT JOIN lancamentos_trabalho l ON l.ordem_servico_id=o.id AND l.data_referencia >= $3 AND l.data_referencia < $4 LEFT JOIN tipos_tarefa t ON t.id=l.tipo_tarefa_id WHERE o.arquivada_em IS NULL AND o.criada_em >= $1 AND o.criada_em < $2 AND ($5='' OR o.status=$5) AND ($6='' OR o.codigo_os LIKE '%'||$6||'%' OR m.nome LIKE '%'||$6||'%') AND ($7=0 OR EXISTS(SELECT 1 FROM lancamentos_trabalho x WHERE x.ordem_servico_id=o.id AND x.tipo_tarefa_id=$7 AND x.data_referencia >= $3 AND x.data_referencia < $4)) GROUP BY o.id ORDER BY o.atualizada_em DESC`,
     [
       start,
       end,
-      filters.date,
+      dateStart,
+      dateEnd,
       filters.status ?? "",
       filters.query ?? "",
       filters.task ?? 0,
@@ -200,17 +248,24 @@ export async function listOrders(filters: {
 }
 export async function listTaskOrders(filters: {
   date: string;
+  mode?: FilterMode;
   status?: string;
   task?: number;
 }): Promise<Order[]> {
   const d = await db();
+  const { dateStart, dateEnd } = periodWindow(
+    filters.date,
+    filters.mode ?? "day",
+  );
   return d.select<Order[]>(
-    `SELECT o.*,m.nome municipio,COALESCE(SUM(l.quantidade),0) total_trabalhos,GROUP_CONCAT(DISTINCT t.nome) task_names FROM ordens_servico o JOIN municipios m ON m.id=o.municipio_id JOIN lancamentos_trabalho l ON l.ordem_servico_id=o.id AND l.data_referencia=$1 JOIN tipos_tarefa t ON t.id=l.tipo_tarefa_id WHERE o.arquivada_em IS NULL AND ($2='' OR o.status=$2) AND ($3=0 OR l.tipo_tarefa_id=$3) GROUP BY o.id ORDER BY o.atualizada_em DESC`,
-    [filters.date, filters.status ?? "", filters.task ?? 0],
+    `SELECT o.*,m.nome municipio,COALESCE(SUM(l.quantidade),0) total_trabalhos,GROUP_CONCAT(DISTINCT t.nome) task_names FROM ordens_servico o JOIN municipios m ON m.id=o.municipio_id JOIN lancamentos_trabalho l ON l.ordem_servico_id=o.id AND l.data_referencia >= $1 AND l.data_referencia < $2 JOIN tipos_tarefa t ON t.id=l.tipo_tarefa_id WHERE o.arquivada_em IS NULL AND ($3='' OR o.status=$3) AND ($4=0 OR l.tipo_tarefa_id=$4) GROUP BY o.id ORDER BY o.atualizada_em DESC`,
+    [dateStart, dateEnd, filters.status ?? "", filters.task ?? 0],
   );
 }
 export async function getOrderById(id: number): Promise<Order | undefined> {
-  const rows = await (await db()).select<Order[]>(
+  const rows = await (
+    await db()
+  ).select<Order[]>(
     `SELECT o.*,m.nome municipio,COALESCE(SUM(l.quantidade),0) total_trabalhos,GROUP_CONCAT(DISTINCT t.nome) task_names FROM ordens_servico o JOIN municipios m ON m.id=o.municipio_id LEFT JOIN lancamentos_trabalho l ON l.ordem_servico_id=o.id LEFT JOIN tipos_tarefa t ON t.id=l.tipo_tarefa_id WHERE o.id=$1 GROUP BY o.id`,
     [id],
   );

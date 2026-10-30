@@ -1,8 +1,10 @@
 import { Archive } from "lucide-react";
 import type { Order } from "../db";
 
-const fmtDate = (s: string) => s ? new Date(s).toLocaleDateString("pt-BR") : "—";
-const slug = (s: string) => s.toLowerCase().replace(/ /g, "-").replace("ã", "a");
+const fmtDate = (s: string) =>
+  s ? new Date(s).toLocaleDateString("pt-BR") : "—";
+const slug = (s: string) =>
+  s.toLowerCase().replace(/ /g, "-").replace("ã", "a");
 
 export default function OrderTable({
   rows,

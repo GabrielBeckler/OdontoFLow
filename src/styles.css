@@ -43,13 +43,15 @@ button {
 .brand {
   display: flex;
   align-items: center;
-  gap: 11px;
+  justify-content: flex-start;
   padding: 0 11px 34px;
-  font:
-    800 21px system-ui,
-    sans-serif;
-  letter-spacing: -1px;
-  color: #23342d;
+}
+.brand-logo {
+  display: block;
+  width: min(176px, 100%);
+  height: auto;
+  max-height: 48px;
+  object-fit: contain;
 }
 .brand-icon {
   height: 39px;
@@ -423,7 +425,7 @@ button {
 .status-panel {
   min-height: 280px;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 .donut-wrap {
   height: 174px;
@@ -1676,6 +1678,31 @@ tbody tr:hover {
   background: #3a2825;
   border-color: #63413b;
   color: #f0b1a5;
+}
+.recharts-default-tooltip {
+  background: rgba(255, 255, 255, 0.98) !important;
+  border: 1px solid #dfe8e2 !important;
+  border-radius: 10px !important;
+  box-shadow: 0 14px 28px rgba(26, 36, 31, 0.12) !important;
+  color: #1e2f2a !important;
+  opacity: 1 !important;
+  z-index: 50 !important;
+}
+.recharts-tooltip-wrapper {
+  z-index: 20;
+}
+.recharts-wrapper,
+.recharts-responsive-container,
+.chart-area,
+.donut-wrap,
+.municipality-bars {
+  overflow: visible !important;
+}
+.app-shell[data-theme="dark"] .recharts-default-tooltip {
+  background: rgba(21, 29, 26, 0.98) !important;
+  border-color: #3a4941 !important;
+  color: #e9f2ed !important;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.28) !important;
 }
 .app-shell[data-theme="dark"] .recharts-cartesian-axis-tick-value,
 .app-shell[data-theme="dark"] .recharts-legend-item-text {
