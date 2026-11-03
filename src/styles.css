@@ -738,6 +738,15 @@ tbody tr:hover {
   width: 27px;
   height: 27px;
 }
+.table-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+}
+.restore-action {
+  color: #2f8f6d;
+}
 .list-toolbar {
   display: flex;
   gap: 9px;
@@ -882,35 +891,57 @@ tbody tr:hover {
   max-width: 900px;
   padding: 20px;
 }
+.settings-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
 .settings-row {
   display: flex;
   align-items: center;
-  gap: 13px;
-  padding: 18px 3px;
-  border-top: 1px solid #edf0ee;
+  gap: 14px;
+  padding: 14px 15px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
 }
-.settings-row:first-of-type {
-  margin-top: 17px;
+.setting-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
 }
 .setting-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 9px;
-  background: #eff7f3;
-  color: #469775;
+  width: 24px;
+  height: 24px;
+  border-radius: 0;
+  background: transparent;
+  color: var(--bg-strong);
   display: grid;
   place-items: center;
+  flex-shrink: 0;
 }
 .settings-row > div:nth-child(2) {
   flex: 1;
 }
 .settings-row b {
   font-size: 11px;
+  color: var(--text-primary);
 }
 .settings-row p {
   margin: 4px 0 0;
-  color: #929e97;
+  color: var(--text-secondary);
   font-size: 10px;
+}
+.settings-row .setting-action {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
 }
 .municipalities-page {
   display: grid;
@@ -1909,17 +1940,17 @@ tbody tr:hover {
   display: grid;
   flex: 1;
   gap: 6px;
-  color: #66746c;
+  color: var(--text-secondary);
   font-size: 10px;
   font-weight: 600;
 }
 .task-settings-form input {
   min-height: 37px;
   padding: 8px 10px;
-  border: 1px solid #e0e7e3;
+  border: 1px solid var(--border-subtle);
   border-radius: 6px;
-  color: #3d4e44;
-  background: #fff;
+  color: var(--text-primary);
+  background: var(--bg-canvas);
 }
 .task-settings-list {
   display: grid;
@@ -1930,12 +1961,12 @@ tbody tr:hover {
   align-items: center;
   gap: 14px;
   padding: 9px 2px;
-  border-top: 1px solid #edf0ee;
-  color: #4c5d53;
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-primary);
   font-size: 11px;
 }
 .task-settings-row small {
-  color: #839188;
+  color: var(--text-muted);
 }
 .task-settings-error {
   color: #ac5145;

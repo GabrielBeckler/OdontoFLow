@@ -245,6 +245,31 @@ export async function listOrders(filters: {
     ],
   );
 }
+export async function listArchivedOrders(filters: {
+  date: string;
+  mode?: FilterMode;
+  status?: string;
+  query?: string;
+  task?: number;
+}): Promise<Order[]> {
+  const d = await db();
+  const { start, end, dateStart, dateEnd } = periodWindow(
+    filters.date,
+    filters.mode ?? "day",
+  );
+  return d.select<Order[]>(
+    `SELECT o.*,m.nome municipio,COALESCE(SUM(l.quantidade),0) total_trabalhos,GROUP_CONCAT(DISTINCT t.nome) task_names FROM ordens_servico o JOIN municipios m ON m.id=o.municipio_id LEFT JOIN lancamentos_trabalho l ON l.ordem_servico_id=o.id AND l.data_referencia >= $3 AND l.data_referencia < $4 LEFT JOIN tipos_tarefa t ON t.id=l.tipo_tarefa_id WHERE o.arquivada_em IS NOT NULL AND o.arquivada_em >= $1 AND o.arquivada_em < $2 AND ($5='' OR o.status=$5) AND ($6='' OR o.codigo_os LIKE '%'||$6||'%' OR m.nome LIKE '%'||$6||'%') AND ($7=0 OR EXISTS(SELECT 1 FROM lancamentos_trabalho x WHERE x.ordem_servico_id=o.id AND x.tipo_tarefa_id=$7 AND x.data_referencia >= $3 AND x.data_referencia < $4)) GROUP BY o.id ORDER BY o.arquivada_em DESC, o.atualizada_em DESC`,
+    [
+      start,
+      end,
+      dateStart,
+      dateEnd,
+      filters.status ?? "",
+      filters.query ?? "",
+      filters.task ?? 0,
+    ],
+  );
+}
 export async function listTaskOrders(filters: {
   date: string;
   mode?: FilterMode;

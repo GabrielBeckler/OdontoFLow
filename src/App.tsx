@@ -16,6 +16,8 @@ import {
   ListChecks,
   MapPin,
   Plus,
+  RotateCcw,
+  Search,
   Settings2,
   Stethoscope,
   Sun,
@@ -35,6 +37,7 @@ import {
   getOrderById,
   getReturns,
   getStatusHistory,
+  listArchivedOrders,
   listOrders,
   listNotificationOrders,
   listTaskOrders,
@@ -60,6 +63,7 @@ import {
   archiveOrder as archiveOrderInDatabase,
   changeOrderStatus,
   MAX_ORDER_ITEM_QUANTITY,
+  restoreArchivedOrder as restoreOrderInDatabase,
   saveOrder as saveOrderInDatabase,
 } from "./services/ordens-servico";
 import {
@@ -71,6 +75,7 @@ import type { Municipality } from "./types/municipality";
 type View =
   | "dashboard"
   | "ordens"
+  | "arquivados"
   | "quadro"
   | "tarefas"
   | "municipios"
@@ -202,20 +207,28 @@ export default function App() {
     try {
       await db();
       const [o, t, m, municipalityCounts] = await Promise.all([
-        view === "tarefas"
-          ? listTaskOrders({
+        view === "arquivados"
+          ? listArchivedOrders({
               date: selectedDate,
               mode: filterMode,
               status: statusFilter,
+              query,
               task: taskFilter,
             })
-          : listOrders({
-              date: selectedDate,
-              mode: filterMode,
-              status: view === "quadro" ? "" : statusFilter,
-              query: view === "quadro" ? "" : query,
-              task: view === "quadro" ? 0 : taskFilter,
-            }),
+          : view === "tarefas"
+            ? listTaskOrders({
+                date: selectedDate,
+                mode: filterMode,
+                status: statusFilter,
+                task: taskFilter,
+              })
+            : listOrders({
+                date: selectedDate,
+                mode: filterMode,
+                status: view === "quadro" ? "" : statusFilter,
+                query: view === "quadro" ? "" : query,
+                task: view === "quadro" ? 0 : taskFilter,
+              }),
         listTasks(),
         listMunicipalities(),
         listMunicipalityOrderCounts(selectedDate, filterMode),
@@ -672,6 +685,19 @@ export default function App() {
       setAlert(`Não foi possível arquivar a OS: ${errorText(error)}`);
     }
   }
+  async function restoreOrder(order: Order) {
+    const prompt = `Restaurar a OS ${order.codigo_os}? Ela voltará para a área ativa do sistema.`;
+    if (!(await confirm(prompt))) return;
+    try {
+      await restoreOrderInDatabase(order);
+      setModal(null);
+      setAlert("OS restaurada.");
+      setView("ordens");
+      void refresh();
+    } catch (error) {
+      setAlert(`Não foi possível restaurar a OS: ${errorText(error)}`);
+    }
+  }
   async function moveOrder(order: Order, status: StatusOS) {
     if (order.status === status || movingOrdersRef.current.has(order.id))
       return;
@@ -812,6 +838,7 @@ export default function App() {
   const title = {
     dashboard: "Visão geral",
     ordens: "Ordens de serviço",
+    arquivados: "Arquivados",
     quadro: "Acompanhamento",
     tarefas: "Produção por tarefa",
     municipios: "Municípios",
@@ -820,6 +847,7 @@ export default function App() {
   const nav: [View, string, typeof LayoutDashboard][] = [
     ["dashboard", "Visão geral", LayoutDashboard],
     ["ordens", "Ordens de serviço", ClipboardList],
+    ["arquivados", "Arquivados", Archive],
     ["quadro", "Acompanhamento", Activity],
     ["tarefas", "Produção por tarefa", ListChecks],
     ["municipios", "Municípios", MapPin],
@@ -987,6 +1015,63 @@ export default function App() {
                   archiveOrder={archiveOrder}
                 />
               )}
+              {view === "arquivados" && (
+                <div className="content">
+                  <div className="list-toolbar">
+                    <div className="search-field">
+                      <Search size={17} />
+                      <input
+                        placeholder="Buscar por código ou município..."
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                      />
+                    </div>
+                    <select
+                      className="filter-select"
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                    >
+                      <option value="">Todos os status</option>
+                      {statuses.map((s) => (
+                        <option key={s}>{s}</option>
+                      ))}
+                    </select>
+                    <select
+                      className="filter-select"
+                      value={taskFilter}
+                      onChange={(e) => setTaskFilter(Number(e.target.value))}
+                    >
+                      <option value={0}>Todas as tarefas</option>
+                      {tasks.map((t) => (
+                        <option value={t.id} key={t.id}>
+                          {t.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <section className="panel table-panel">
+                    <div className="panel-head">
+                      <div>
+                        <h3>{orders.length} ordens arquivadas</h3>
+                        <p>
+                          {filterMode === "day" ? "Data" : "Mês"}: {" "}
+                          {filterMode === "day"
+                            ? fmtReferenceDate(selectedDate)
+                            : new Date(`${selectedDate.slice(0, 7)}-01`).toLocaleDateString(
+                                "pt-BR",
+                                { month: "long", year: "numeric" },
+                              )}
+                        </p>
+                      </div>
+                    </div>
+                    <OrderTable
+                      rows={orders}
+                      open={(o) => void beginOrder(o)}
+                      restore={(o) => void restoreOrder(o)}
+                    />
+                  </section>
+                </div>
+              )}
               {view === "quadro" && (
                 <div className="content">
                   <div className="kanban">
@@ -1126,102 +1211,122 @@ export default function App() {
                         </p>
                       </div>
                     </div>
-                    <div className="settings-row">
-                      <div className="setting-icon">
-                        <ClipboardList size={18} />
+                    <div className="settings-list">
+                      <div className="settings-row">
+                        <div className="setting-main">
+                          <div className="setting-icon">
+                            <ClipboardList size={18} />
+                          </div>
+                          <div>
+                            <b>Banco SQLite conectado</b>
+                            <p className="db-path">
+                              {currentDatabasePath() ||
+                                "Nenhum arquivo selecionado"}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="setting-action">
+                          <button
+                            className="outline-button"
+                            onClick={() => void selectDatabase()}
+                          >
+                            Selecionar banco
+                          </button>
+                        </div>
                       </div>
-                      <div>
-                        <b>Banco SQLite conectado</b>
-                        <p className="db-path">
-                          {currentDatabasePath() ||
-                            "Nenhum arquivo selecionado"}
-                        </p>
+                      <div className="settings-row">
+                        <div className="setting-main">
+                          <div className="setting-icon">
+                            <Archive size={18} />
+                          </div>
+                          <div>
+                            <b>Backup e restauração</b>
+                            <p>
+                              {lastBackup
+                                ? `Último backup: ${lastBackup}`
+                                : "Backup automático local a cada hora enquanto o aplicativo estiver aberto."}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="setting-action">
+                          <button
+                            className="outline-button"
+                            onClick={() => void makeBackup(true)}
+                          >
+                            <ArrowDownToLine size={14} /> Fazer backup
+                          </button>
+                          <button
+                            className="outline-button"
+                            onClick={() => void restoreBackup()}
+                          >
+                            Restaurar
+                          </button>
+                        </div>
                       </div>
-                      <button
-                        className="outline-button"
-                        onClick={() => void selectDatabase()}
-                      >
-                        Selecionar banco
-                      </button>
-                    </div>
-                    <div className="settings-row">
-                      <div className="setting-icon">
-                        <Archive size={18} />
+                      <TaskSettings onChanged={refresh} />
+                      <div className="settings-row">
+                        <div className="setting-main">
+                          <div className="setting-icon">
+                            <Stethoscope size={18} />
+                          </div>
+                          <div>
+                            <b>Municípios</b>
+                            <p>
+                              {municipalities.length} localidades disponíveis no
+                              cadastro.
+                            </p>
+                          </div>
+                        </div>
+                        <div className="setting-action">
+                          <button
+                            className="outline-button"
+                            onClick={() => setView("municipios")}
+                          >
+                            Gerenciar municípios
+                          </button>
+                        </div>
                       </div>
-                      <div>
-                        <b>Backup e restauração</b>
-                        <p>
-                          {lastBackup
-                            ? `Último backup: ${lastBackup}`
-                            : "Backup automático local a cada hora enquanto o aplicativo estiver aberto."}
-                        </p>
+                      <div className="settings-row">
+                        <div className="setting-main">
+                          <div className="setting-icon">
+                            <CalendarDays size={18} />
+                          </div>
+                          <div>
+                            <b>Idioma</b>
+                            <p>Português brasileiro</p>
+                          </div>
+                        </div>
                       </div>
-                      <button
-                        className="outline-button"
-                        onClick={() => void makeBackup(true)}
-                      >
-                        <ArrowDownToLine size={14} /> Fazer backup
-                      </button>
-                      <button
-                        className="outline-button"
-                        onClick={() => void restoreBackup()}
-                      >
-                        Restaurar
-                      </button>
-                    </div>
-                    <TaskSettings onChanged={refresh} />
-                    <div className="settings-row">
-                      <div className="setting-icon">
-                        <Stethoscope size={18} />
+                      <div className="settings-row">
+                        <div className="setting-main">
+                          <div className="setting-icon">
+                            {theme === "dark" ? (
+                              <Moon size={18} />
+                            ) : (
+                              <Sun size={18} />
+                            )}
+                          </div>
+                          <div>
+                            <b>Tema do aplicativo</b>
+                            <p>Preferência salva neste perfil do aplicativo.</p>
+                          </div>
+                        </div>
+                        <div className="setting-action">
+                          <button
+                            className="outline-button"
+                            aria-pressed={theme === "dark"}
+                            onClick={() =>
+                              setTheme((current) =>
+                                current === "dark" ? "light" : "dark",
+                              )
+                            }
+                          >
+                            {theme === "dark"
+                              ? "Usar tema claro"
+                              : "Usar tema escuro"}
+                          </button>
+                        </div>
                       </div>
-                      <div>
-                        <b>Municípios</b>
-                        <p>
-                          {municipalities.length} localidades disponíveis no
-                          cadastro.
-                        </p>
-                      </div>
-                      <button
-                        className="outline-button"
-                        onClick={() => setView("municipios")}
-                      >
-                        Gerenciar municípios
-                      </button>
-                    </div>
-                    <div className="settings-row">
-                      <div className="setting-icon">
-                        <CalendarDays size={18} />
-                      </div>
-                      <div>
-                        <b>Idioma</b>
-                        <p>Português brasileiro</p>
-                      </div>
-                    </div>
-                    <div className="settings-row">
-                      <div className="setting-icon">
-                        {theme === "dark" ? (
-                          <Moon size={18} />
-                        ) : (
-                          <Sun size={18} />
-                        )}
-                      </div>
-                      <div>
-                        <b>Tema do aplicativo</b>
-                        <p>Preferência salva neste perfil do aplicativo.</p>
-                      </div>
-                      <button
-                        className="outline-button"
-                        aria-pressed={theme === "dark"}
-                        onClick={() =>
-                          setTheme((current) =>
-                            current === "dark" ? "light" : "dark",
-                          )
-                        }
-                      >
-                        {theme === "dark"
-                          ? "Usar tema claro"
-                          : "Usar tema escuro"}
-                      </button>
                     </div>
                   </section>
                 </div>
@@ -1702,30 +1807,57 @@ export default function App() {
             </div>
             <div className="modal-footer">
               {orderMode === "view" && editing ? (
-                <>
-                  <button
-                    type="button"
-                    className="outline-button"
-                    onClick={printOrder}
-                  >
-                    <ArrowDownToLine size={14} /> Exportar
-                  </button>
-                  <span />
-                  <button
-                    type="button"
-                    className="outline-button"
-                    onClick={() => void closeOrderModal()}
-                  >
-                    Sair
-                  </button>
-                  <button
-                    type="button"
-                    className="primary-button"
-                    onClick={enterOrderEditMode}
-                  >
-                    Editar
-                  </button>
-                </>
+                editing.arquivada_em ? (
+                  <>
+                    <button
+                      type="button"
+                      className="outline-button"
+                      onClick={printOrder}
+                    >
+                      <ArrowDownToLine size={14} /> Exportar
+                    </button>
+                    <span />
+                    <button
+                      type="button"
+                      className="outline-button"
+                      onClick={() => void closeOrderModal()}
+                    >
+                      Sair
+                    </button>
+                    <button
+                      type="button"
+                      className="primary-button"
+                      onClick={() => void restoreOrder(editing)}
+                    >
+                      <RotateCcw size={14} /> Restaurar OS
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className="outline-button"
+                      onClick={printOrder}
+                    >
+                      <ArrowDownToLine size={14} /> Exportar
+                    </button>
+                    <span />
+                    <button
+                      type="button"
+                      className="outline-button"
+                      onClick={() => void closeOrderModal()}
+                    >
+                      Sair
+                    </button>
+                    <button
+                      type="button"
+                      className="primary-button"
+                      onClick={enterOrderEditMode}
+                    >
+                      Editar
+                    </button>
+                  </>
+                )
               ) : (
                 <>
                   {editing && (

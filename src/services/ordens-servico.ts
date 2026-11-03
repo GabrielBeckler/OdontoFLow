@@ -216,6 +216,26 @@ export async function archiveOrder(order: Order): Promise<void> {
   ]);
 }
 
+export async function restoreArchivedOrder(order: Order): Promise<void> {
+  const timestamp = new Date().toISOString();
+  await executeSqliteTransaction([
+    {
+      query: "UPDATE ordens_servico SET arquivada_em=NULL,atualizada_em=$1 WHERE id=$2 AND arquivada_em IS NOT NULL",
+      values: [timestamp, order.id],
+      expectedRows: 1,
+    },
+    {
+      query: "INSERT INTO historico_alteracoes_os(ordem_servico_id,operacao,valores_anteriores,valores_novos,registrado_em) VALUES($1,'RESTAURACAO',$2,$3,$4)",
+      values: [
+        order.id,
+        JSON.stringify(order),
+        JSON.stringify({ ...order, arquivada_em: null, atualizada_em: timestamp }),
+        timestamp,
+      ],
+    },
+  ]);
+}
+
 export async function changeOrderStatus(order: Order, status: StatusOS): Promise<void> {
   if (order.status === status) return;
   const timestamp = new Date().toISOString();

@@ -1,4 +1,4 @@
-import { Archive } from "lucide-react";
+import { Archive, RotateCcw } from "lucide-react";
 import type { Order } from "../db";
 
 const fmtDate = (s: string) =>
@@ -10,10 +10,12 @@ export default function OrderTable({
   rows,
   open,
   archive,
+  restore,
 }: {
   rows: Order[];
   open: (o: Order) => void;
   archive?: (o: Order) => void;
+  restore?: (o: Order) => void;
 }) {
   return (
     <div className="table-scroll">
@@ -54,18 +56,32 @@ export default function OrderTable({
                 </td>
                 <td>{fmtDate(o.atualizada_em)}</td>
                 <td>
-                  {archive && (
-                    <button
-                      className="icon-button table-action"
-                      title="Arquivar"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        archive(o);
-                      }}
-                    >
-                      <Archive size={15} />
-                    </button>
-                  )}
+                  <div className="table-actions">
+                    {restore && (
+                      <button
+                        className="icon-button table-action restore-action"
+                        title="Restaurar"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          restore(o);
+                        }}
+                      >
+                        <RotateCcw size={15} />
+                      </button>
+                    )}
+                    {archive && (
+                      <button
+                        className="icon-button table-action"
+                        title="Arquivar"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          archive(o);
+                        }}
+                      >
+                        <Archive size={15} />
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))
