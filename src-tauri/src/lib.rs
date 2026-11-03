@@ -48,6 +48,8 @@ const APP_DATABASE_SCHEMA: &[&str] = &[
     "CREATE TABLE historico_alteracoes_os(id INTEGER PRIMARY KEY, ordem_servico_id INTEGER, operacao TEXT NOT NULL, valores_anteriores TEXT, valores_novos TEXT, registrado_em TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))) ",
     "CREATE TABLE auditoria_lancamentos(id INTEGER PRIMARY KEY, lancamento_id INTEGER, operacao TEXT NOT NULL, valores_anteriores TEXT, valores_novos TEXT, registrado_em TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))) ",
 ];
+const INITIAL_DATABASE_DATA: &str =
+    include_str!("../seeds/initial_data.sql");
 
 const BACKUP_TABLES: &[(&str, &[&str])] = &[
     ("municipios", &["id", "codigo", "nome", "ativo"]),
@@ -1558,20 +1560,39 @@ async fn validate_database_file(path: &Path) -> Result<bool, String> {
     Ok(true)
 }
 
+
 async fn ensure_default_database(path: &Path) -> Result<(), String> {
     if path.exists() {
         match validate_database_file(path).await {
             Ok(true) => return Ok(()),
-            Ok(false) => return Err(format!("O banco em {} não foi encontrado.", path.display())),
-            Err(error) => return Err(format!("Banco padrão inválido em {}: {error}", path.display())),
+            Ok(false) => {
+                return Err(format!(
+                    "O banco em {} não foi encontrado.",
+                    path.display()
+                ))
+            }
+            Err(error) => {
+                return Err(format!(
+                    "Banco padrão inválido em {}: {error}",
+                    path.display()
+                ))
+            }
         }
     }
 
     let parent = path.parent().ok_or_else(|| {
-        format!("O diretório do banco padrão em {} não é válido.", path.display())
+        format!(
+            "O diretório do banco padrão em {} não é válido.",
+            path.display()
+        )
     })?;
-    fs::create_dir_all(parent)
-        .map_err(|error| format!("Não foi possível criar o diretório {}: {error}", parent.display()))?;
+
+    fs::create_dir_all(parent).map_err(|error| {
+        format!(
+            "Não foi possível criar o diretório {}: {error}",
+            parent.display()
+        )
+    })?;
 
     let temporary = parent.join(format!(
         ".{}.{}.tmp",
@@ -1580,6 +1601,7 @@ async fn ensure_default_database(path: &Path) -> Result<(), String> {
             .unwrap_or("odontoflow"),
         std::process::id()
     ));
+
     let temp_pool = SqlitePoolOptions::new()
         .max_connections(1)
         .connect_with(
@@ -1589,42 +1611,112 @@ async fn ensure_default_database(path: &Path) -> Result<(), String> {
                 .foreign_keys(true),
         )
         .await
-        .map_err(|error| format!("Não foi possível preparar o banco em {}: {error}", temporary.display()))?;
-    let mut transaction = temp_pool.begin().await.map_err(|error| error.to_string())?;
+        .map_err(|error| {
+            format!(
+                "Não foi possível preparar o banco em {}: {error}",
+                temporary.display()
+            )
+        })?;
+
+    let mut transaction = temp_pool
+        .begin()
+        .await
+        .map_err(|error| error.to_string())?;
+
+    // 1. Criar todas as tabelas
     for statement in APP_DATABASE_SCHEMA {
         sqlx::query(statement)
             .execute(&mut *transaction)
             .await
-            .map_err(|error| format!("Falha ao criar schema em {}: {error}", temporary.display()))?;
+            .map_err(|error| {
+                format!(
+                    "Falha ao criar schema em {}: {error}",
+                    temporary.display()
+                )
+            })?;
     }
-    transaction.commit().await.map_err(|error| error.to_string())?;
+
+    // 2. Inserir municípios e tipos de atividade
+    for statement in INITIAL_DATABASE_DATA.split(';') {
+        let statement = statement
+            .lines()
+            .filter(|line| !line.trim().starts_with("--"))
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        let statement = statement.trim();
+
+        if statement.is_empty() {
+            continue;
+        }
+
+        sqlx::query(statement)
+            .execute(&mut *transaction)
+            .await
+            .map_err(|error| {
+                format!(
+                    "Falha ao inserir dados iniciais: {error}"
+                )
+            })?;
+    }
+
+    // 3. Confirmar as alterações
+    transaction
+        .commit()
+        .await
+        .map_err(|error| error.to_string())?;
+
+    // 4. Validar e finalizar a criação do banco
     if validate_database_file(&temporary).await? {
         if path.exists() {
             let existing = validate_database_file(path).await;
+
             if let Ok(true) = existing {
+                let _ = fs::remove_file(&temporary);
                 return Ok(());
             }
         }
+
         if let Err(error) = fs::rename(&temporary, path) {
             if error.kind() == std::io::ErrorKind::AlreadyExists {
                 let _ = fs::remove_file(&temporary);
+
                 return match validate_database_file(path).await {
                     Ok(true) => Ok(()),
-                    Ok(false) => Err(format!("O banco em {} foi criado em paralelo e não pôde ser validado.", path.display())),
-                    Err(err) => Err(format!("Banco padrão em {} foi criado em paralelo, mas não é válido: {err}", path.display())),
+                    Ok(false) => Err(format!(
+                        "O banco em {} foi criado em paralelo e não pôde ser validado.",
+                        path.display()
+                    )),
+                    Err(err) => Err(format!(
+                        "Banco padrão em {} foi criado em paralelo, mas não é válido: {err}",
+                        path.display()
+                    )),
                 };
             }
+
             let _ = fs::remove_file(&temporary);
-            return Err(format!("Não foi possível completar a criação do banco em {}: {error}", path.display()));
+
+            return Err(format!(
+                "Não foi possível completar a criação do banco em {}: {error}",
+                path.display()
+            ));
         }
     } else {
         let _ = fs::remove_file(&temporary);
-        return Err(format!("O banco em {} foi criado, mas sua estrutura final não passou na validação.", path.display()));
+
+        return Err(format!(
+            "O banco em {} foi criado, mas sua estrutura final não passou na validação.",
+            path.display()
+        ));
     }
 
     validate_database_file(path).await.map_err(|error| {
-        format!("O banco em {} foi criado, mas não passou na validação final: {error}", path.display())
+        format!(
+            "O banco em {} foi criado, mas não passou na validação final: {error}",
+            path.display()
+        )
     })?;
+
     Ok(())
 }
 

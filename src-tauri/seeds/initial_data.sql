@@ -1,0 +1,27 @@
+-- Cadastros iniciais do OdontoFlow
+INSERT INTO municipios(id,codigo,nome,ativo) VALUES(1, 'ANAJ', 'ANAJATUBA', 1);
+INSERT INTO municipios(id,codigo,nome,ativo) VALUES(2, 'AVA', 'AVAI ALDEIA', 1);
+INSERT INTO municipios(id,codigo,nome,ativo) VALUES(3, 'ANH', 'ANHEMBI', 1);
+INSERT INTO municipios(id,codigo,nome,ativo) VALUES(4, 'AVC', 'AVAI CIDADE', 1);
+INSERT INTO municipios(id,codigo,nome,ativo) VALUES(5, 'ATI', 'ATIBAIA', 1);
+INSERT INTO municipios(id,codigo,nome,ativo) VALUES(6, 'ARA', 'ARARAS', 1);
+INSERT INTO municipios(id,codigo,nome,ativo) VALUES(7, 'CAN', 'CANITAR', 1);
+INSERT INTO municipios(id,codigo,nome,ativo) VALUES(8, 'COR', 'CORDEIRÓPOLIS', 1);
+INSERT INTO municipios(id,codigo,nome,ativo) VALUES(9, 'DIAD', 'DIADEMA', 1);
+INSERT INTO municipios(id,codigo,nome,ativo) VALUES(10, 'FLO', 'FLORINEA', 1);
+INSERT INTO municipios(id,codigo,nome,ativo) VALUES(11, 'IND', 'INDAIATUBA', 1);
+INSERT INTO municipios(id,codigo,nome,ativo) VALUES(12, 'JOANO', 'JOANOPOLIS', 1);
+INSERT INTO municipios(id,codigo,nome,ativo) VALUES(13, 'PART', 'PARTICULAR', 1);
+INSERT INTO municipios(id,codigo,nome,ativo) VALUES(14, 'PBJ', 'PIRAPORA', 1);
+INSERT INTO municipios(id,codigo,nome,ativo) VALUES(15, 'QTA', 'QUINTANA', 1);
+INSERT INTO municipios(id,codigo,nome,ativo) VALUES(16, 'RIO', 'RIO DE JANEIRO', 1);
+INSERT INTO municipios(id,codigo,nome,ativo) VALUES(17, 'RCA', 'RIO DO CAMPO', 1);
+INSERT INTO municipios(id,codigo,nome,ativo) VALUES(18, 'SP', 'SÃO PAULO', 1);
+INSERT INTO municipios(id,codigo,nome,ativo) VALUES(19, 'SAD', 'SANTO ANDRÉ', 1);
+INSERT INTO municipios(id,codigo,nome,ativo) VALUES(20, 'UNAI', 'UNAÍ', 1);
+INSERT INTO tipos_tarefa(id,nome,ativo) VALUES(1, 'Base de prova', 1);
+INSERT INTO tipos_tarefa(id,nome,ativo) VALUES(2, 'Desenho CAD final PRR FO', 1);
+INSERT INTO tipos_tarefa(id,nome,ativo) VALUES(3, 'Desenho CAD final PRR M', 1);
+INSERT INTO tipos_tarefa(id,nome,ativo) VALUES(4, 'Desenho CAD final PT', 1);
+INSERT INTO tipos_tarefa(id,nome,ativo) VALUES(5, 'Desenho CAD protótipo', 1);
+INSERT INTO tipos_tarefa(id,nome,ativo) VALUES(6, 'Modelo articulado', 1);
