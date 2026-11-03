@@ -134,14 +134,24 @@ async function connectToExistingDatabase(path: string): Promise<Database> {
 }
 
 async function resolveStartupDatabasePath(): Promise<string> {
-  const configured = localStorage.getItem(databasePathKey);
-  if (configured) return configured;
   try {
-    return await invoke<string>("ensure_default_database_path");
+    // Inicializa e atualiza os cadastros do banco padrão
+    const defaultPath = await invoke<string>(
+      "ensure_default_database_path"
+    );
+
+    // Preserva a seleção de bancos personalizados
+    const configured = localStorage.getItem(databasePathKey);
+
+    return configured || defaultPath;
   } catch (error) {
-    console.error("Falha na inicialização do banco padrão do OdontoFlow", error);
+    console.error(
+      "Falha na inicialização do banco padrão do OdontoFlow",
+      error
+    );
+
     throw new Error(
-      `Não foi possível inicializar o banco padrão do OdontoFlow: ${String(error)}`,
+      `Não foi possível inicializar o banco padrão do OdontoFlow: ${String(error)}`
     );
   }
 }
