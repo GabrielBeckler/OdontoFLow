@@ -39,14 +39,14 @@ const REQUIRED_DATABASE_TABLES: &[&str] = &[
     "auditoria_lancamentos",
 ];
 const APP_DATABASE_SCHEMA: &[&str] = &[
-    "CREATE TABLE municipios(id INTEGER PRIMARY KEY, codigo TEXT NOT NULL UNIQUE, nome TEXT NOT NULL UNIQUE, ativo INTEGER NOT NULL CHECK(ativo IN (0,1)))",
-    "CREATE TABLE tipos_tarefa(id INTEGER PRIMARY KEY, nome TEXT NOT NULL UNIQUE, ativo INTEGER NOT NULL CHECK(ativo IN (0,1)))",
-    "CREATE TABLE ordens_servico(id INTEGER PRIMARY KEY, codigo_os TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('Em andamento','Finalizado','Retorno')), descricao TEXT, criada_em TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), atualizada_em TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), arquivada_em TEXT, municipio_id INTEGER NOT NULL REFERENCES municipios(id))",
-    "CREATE TABLE lancamentos_trabalho(id INTEGER PRIMARY KEY, ordem_servico_id INTEGER NOT NULL REFERENCES ordens_servico(id), tipo_tarefa_id INTEGER NOT NULL REFERENCES tipos_tarefa(id), quantidade INTEGER NOT NULL CHECK(quantidade > 0), data_referencia TEXT NOT NULL CHECK(length(data_referencia)=10), criado_em TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), atualizado_em TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))) ",
-    "CREATE TABLE historico_retornos(id INTEGER PRIMARY KEY, ordem_servico_id INTEGER NOT NULL REFERENCES ordens_servico(id), motivo TEXT NOT NULL CHECK(motivo IN ('Escaneamento incorreto','Reavaliar','Falta de espaço Protético','Falta arquivo','Outros')), justificativa TEXT, registrado_em TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), CHECK(motivo <> 'Outros' OR (justificativa IS NOT NULL AND length(trim(justificativa)) > 0)))",
-    "CREATE TABLE historico_status_os(id INTEGER PRIMARY KEY, ordem_servico_id INTEGER NOT NULL REFERENCES ordens_servico(id), de_status TEXT, para_status TEXT NOT NULL, alterado_em TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))) ",
-    "CREATE TABLE historico_alteracoes_os(id INTEGER PRIMARY KEY, ordem_servico_id INTEGER, operacao TEXT NOT NULL, valores_anteriores TEXT, valores_novos TEXT, registrado_em TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))) ",
-    "CREATE TABLE auditoria_lancamentos(id INTEGER PRIMARY KEY, lancamento_id INTEGER, operacao TEXT NOT NULL, valores_anteriores TEXT, valores_novos TEXT, registrado_em TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))) ",
+    "CREATE TABLE IF NOT EXISTS municipios(id INTEGER PRIMARY KEY, codigo TEXT NOT NULL UNIQUE, nome TEXT NOT NULL UNIQUE, ativo INTEGER NOT NULL CHECK(ativo IN (0,1)))",
+    "CREATE TABLE IF NOT EXISTS tipos_tarefa(id INTEGER PRIMARY KEY, nome TEXT NOT NULL UNIQUE, ativo INTEGER NOT NULL CHECK(ativo IN (0,1)))",
+    "CREATE TABLE IF NOT EXISTS ordens_servico(id INTEGER PRIMARY KEY, codigo_os TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('Em andamento','Finalizado','Retorno')), descricao TEXT, criada_em TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), atualizada_em TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), arquivada_em TEXT, municipio_id INTEGER NOT NULL REFERENCES municipios(id))",
+    "CREATE TABLE IF NOT EXISTS lancamentos_trabalho(id INTEGER PRIMARY KEY, ordem_servico_id INTEGER NOT NULL REFERENCES ordens_servico(id), tipo_tarefa_id INTEGER NOT NULL REFERENCES tipos_tarefa(id), quantidade INTEGER NOT NULL CHECK(quantidade > 0), data_referencia TEXT NOT NULL CHECK(length(data_referencia)=10), criado_em TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), atualizado_em TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))) ",
+    "CREATE TABLE IF NOT EXISTS historico_retornos(id INTEGER PRIMARY KEY, ordem_servico_id INTEGER NOT NULL REFERENCES ordens_servico(id), motivo TEXT NOT NULL CHECK(motivo IN ('Escaneamento incorreto','Reavaliar','Falta de espaço Protético','Falta arquivo','Outros')), justificativa TEXT, registrado_em TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), CHECK(motivo <> 'Outros' OR (justificativa IS NOT NULL AND length(trim(justificativa)) > 0)))",
+    "CREATE TABLE IF NOT EXISTS historico_status_os(id INTEGER PRIMARY KEY, ordem_servico_id INTEGER NOT NULL REFERENCES ordens_servico(id), de_status TEXT, para_status TEXT NOT NULL, alterado_em TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))) ",
+    "CREATE TABLE IF NOT EXISTS historico_alteracoes_os(id INTEGER PRIMARY KEY, ordem_servico_id INTEGER, operacao TEXT NOT NULL, valores_anteriores TEXT, valores_novos TEXT, registrado_em TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))) ",
+    "CREATE TABLE IF NOT EXISTS auditoria_lancamentos(id INTEGER PRIMARY KEY, lancamento_id INTEGER, operacao TEXT NOT NULL, valores_anteriores TEXT, valores_novos TEXT, registrado_em TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))) ",
 ];
 const INITIAL_DATABASE_DATA: &str =
     include_str!("../seeds/initial_data.sql");
@@ -586,6 +586,92 @@ mod tests {
             .unwrap();
         assert!(tables.iter().any(|name| name == "municipios"));
         assert!(tables.iter().any(|name| name == "ordens_servico"));
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[tokio::test]
+    async fn bootstrap_fills_missing_seed_data_without_overwriting_custom_rows() {
+        let root = std::env::temp_dir().join(format!(
+            "odontoflow-seed-fill-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let db_path = root.join("odontoflow.db");
+        std::fs::create_dir_all(&root).unwrap();
+
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(
+                SqliteConnectOptions::new()
+                    .filename(&db_path)
+                    .create_if_missing(true)
+                    .foreign_keys(true),
+            )
+            .await
+            .unwrap();
+
+        for sql in [
+            "CREATE TABLE IF NOT EXISTS municipios(id INTEGER PRIMARY KEY, codigo TEXT NOT NULL UNIQUE, nome TEXT NOT NULL UNIQUE, ativo INTEGER NOT NULL CHECK(ativo IN (0,1)))",
+            "CREATE TABLE IF NOT EXISTS tipos_tarefa(id INTEGER PRIMARY KEY, nome TEXT NOT NULL UNIQUE, ativo INTEGER NOT NULL CHECK(ativo IN (0,1)))",
+            "CREATE TABLE IF NOT EXISTS ordens_servico(id INTEGER PRIMARY KEY, codigo_os TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('Em andamento','Finalizado','Retorno')), descricao TEXT, criada_em TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), atualizada_em TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), arquivada_em TEXT, municipio_id INTEGER NOT NULL REFERENCES municipios(id))",
+            "CREATE TABLE IF NOT EXISTS lancamentos_trabalho(id INTEGER PRIMARY KEY, ordem_servico_id INTEGER NOT NULL REFERENCES ordens_servico(id), tipo_tarefa_id INTEGER NOT NULL REFERENCES tipos_tarefa(id), quantidade INTEGER NOT NULL CHECK(quantidade > 0), data_referencia TEXT NOT NULL CHECK(length(data_referencia)=10), criado_em TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), atualizado_em TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))) ",
+            "CREATE TABLE IF NOT EXISTS historico_retornos(id INTEGER PRIMARY KEY, ordem_servico_id INTEGER NOT NULL REFERENCES ordens_servico(id), motivo TEXT NOT NULL CHECK(motivo IN ('Escaneamento incorreto','Reavaliar','Falta de espaço Protético','Falta arquivo','Outros')), justificativa TEXT, registrado_em TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), CHECK(motivo <> 'Outros' OR (justificativa IS NOT NULL AND length(trim(justificativa)) > 0)))",
+            "CREATE TABLE IF NOT EXISTS historico_status_os(id INTEGER PRIMARY KEY, ordem_servico_id INTEGER NOT NULL REFERENCES ordens_servico(id), de_status TEXT, para_status TEXT NOT NULL, alterado_em TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))) ",
+            "CREATE TABLE IF NOT EXISTS historico_alteracoes_os(id INTEGER PRIMARY KEY, ordem_servico_id INTEGER, operacao TEXT NOT NULL, valores_anteriores TEXT, valores_novos TEXT, registrado_em TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))) ",
+            "CREATE TABLE IF NOT EXISTS auditoria_lancamentos(id INTEGER PRIMARY KEY, lancamento_id INTEGER, operacao TEXT NOT NULL, valores_anteriores TEXT, valores_novos TEXT, registrado_em TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))) ",
+        ] {
+            pool.execute(sql).await.unwrap();
+        }
+
+        pool.execute("INSERT INTO municipios(id,codigo,nome,ativo) VALUES(1,'ANAJ','ANAJATUBA',0)")
+            .await
+            .unwrap();
+        pool.execute("INSERT INTO municipios(id,codigo,nome,ativo) VALUES(999,'XYZ','Municipio extra',1)")
+            .await
+            .unwrap();
+        pool.execute("INSERT INTO tipos_tarefa(id,nome,ativo) VALUES(999,'Tarefa extra',1)")
+            .await
+            .unwrap();
+        drop(pool);
+
+        ensure_default_database(&db_path).await.unwrap();
+
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(SqliteConnectOptions::new().filename(&db_path).foreign_keys(true))
+            .await
+            .unwrap();
+
+        let municipality_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM municipios")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        let task_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM tipos_tarefa")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        let inactive_default: i64 = sqlx::query_scalar("SELECT ativo FROM municipios WHERE id=1")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        let custom_municipality: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM municipios WHERE codigo='XYZ'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        let custom_task: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM tipos_tarefa WHERE nome='Tarefa extra'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+
+        assert_eq!(municipality_count, 21);
+        assert_eq!(task_count, 7);
+        assert_eq!(inactive_default, 0);
+        assert_eq!(custom_municipality, 1);
+        assert_eq!(custom_task, 1);
 
         let _ = std::fs::remove_dir_all(root);
     }
@@ -1562,24 +1648,6 @@ async fn validate_database_file(path: &Path) -> Result<bool, String> {
 
 
 async fn ensure_default_database(path: &Path) -> Result<(), String> {
-    if path.exists() {
-        match validate_database_file(path).await {
-            Ok(true) => return Ok(()),
-            Ok(false) => {
-                return Err(format!(
-                    "O banco em {} não foi encontrado.",
-                    path.display()
-                ))
-            }
-            Err(error) => {
-                return Err(format!(
-                    "Banco padrão inválido em {}: {error}",
-                    path.display()
-                ))
-            }
-        }
-    }
-
     let parent = path.parent().ok_or_else(|| {
         format!(
             "O diretório do banco padrão em {} não é válido.",
@@ -1594,49 +1662,35 @@ async fn ensure_default_database(path: &Path) -> Result<(), String> {
         )
     })?;
 
-    let temporary = parent.join(format!(
-        ".{}.{}.tmp",
-        path.file_name()
-            .and_then(|name| name.to_str())
-            .unwrap_or("odontoflow"),
-        std::process::id()
-    ));
-
-    let temp_pool = SqlitePoolOptions::new()
+    let database_exists = path.exists();
+    let pool = SqlitePoolOptions::new()
         .max_connections(1)
         .connect_with(
             SqliteConnectOptions::new()
-                .filename(&temporary)
+                .filename(path)
                 .create_if_missing(true)
                 .foreign_keys(true),
         )
         .await
         .map_err(|error| {
             format!(
-                "Não foi possível preparar o banco em {}: {error}",
-                temporary.display()
+                "Não foi possível abrir ou criar o banco em {}: {error}",
+                path.display()
             )
         })?;
 
-    let mut transaction = temp_pool
-        .begin()
-        .await
-        .map_err(|error| error.to_string())?;
-
-    // 1. Criar todas as tabelas
     for statement in APP_DATABASE_SCHEMA {
         sqlx::query(statement)
-            .execute(&mut *transaction)
+            .execute(&pool)
             .await
-            .map_err(|error| {
-                format!(
-                    "Falha ao criar schema em {}: {error}",
-                    temporary.display()
-                )
-            })?;
+            .map_err(|error| format!("Falha ao garantir o schema do banco em {}: {error}", path.display()))?;
     }
 
-    // 2. Inserir municípios e tipos de atividade
+    let mut transaction = pool
+        .begin()
+        .await
+        .map_err(|error| format!("Falha ao preparar a transação de sementes em {}: {error}", path.display()))?;
+
     for statement in INITIAL_DATABASE_DATA.split(';') {
         let statement = statement
             .lines()
@@ -1645,7 +1699,6 @@ async fn ensure_default_database(path: &Path) -> Result<(), String> {
             .join("\n");
 
         let statement = statement.trim();
-
         if statement.is_empty() {
             continue;
         }
@@ -1655,67 +1708,39 @@ async fn ensure_default_database(path: &Path) -> Result<(), String> {
             .await
             .map_err(|error| {
                 format!(
-                    "Falha ao inserir dados iniciais: {error}"
+                    "Falha ao inserir dados iniciais em {}: {error}",
+                    path.display()
                 )
             })?;
     }
 
-    // 3. Confirmar as alterações
     transaction
         .commit()
         .await
-        .map_err(|error| error.to_string())?;
+        .map_err(|error| format!("Falha ao confirmar os dados iniciais em {}: {error}", path.display()))?;
 
-    // 4. Validar e finalizar a criação do banco
-    if validate_database_file(&temporary).await? {
-        if path.exists() {
-            let existing = validate_database_file(path).await;
-
-            if let Ok(true) = existing {
-                let _ = fs::remove_file(&temporary);
-                return Ok(());
-            }
-        }
-
-        if let Err(error) = fs::rename(&temporary, path) {
-            if error.kind() == std::io::ErrorKind::AlreadyExists {
-                let _ = fs::remove_file(&temporary);
-
-                return match validate_database_file(path).await {
-                    Ok(true) => Ok(()),
-                    Ok(false) => Err(format!(
-                        "O banco em {} foi criado em paralelo e não pôde ser validado.",
-                        path.display()
-                    )),
-                    Err(err) => Err(format!(
-                        "Banco padrão em {} foi criado em paralelo, mas não é válido: {err}",
-                        path.display()
-                    )),
-                };
-            }
-
-            let _ = fs::remove_file(&temporary);
-
-            return Err(format!(
-                "Não foi possível completar a criação do banco em {}: {error}",
+    if !database_exists {
+        validate_database_file(path).await.map_err(|error| {
+            format!(
+                "O banco em {} foi criado, mas não passou na validação final: {error}",
                 path.display()
-            ));
-        }
-    } else {
-        let _ = fs::remove_file(&temporary);
-
-        return Err(format!(
-            "O banco em {} foi criado, mas sua estrutura final não passou na validação.",
-            path.display()
-        ));
+            )
+        })?;
+        return Ok(());
     }
 
-    validate_database_file(path).await.map_err(|error| {
+    let valid = validate_database_file(path).await.map_err(|error| {
         format!(
-            "O banco em {} foi criado, mas não passou na validação final: {error}",
+            "O banco em {} existe, mas não passou na validação final: {error}",
             path.display()
         )
     })?;
+    if !valid {
+        return Err(format!(
+            "O banco em {} foi aberto, mas não passou na validação final.",
+            path.display()
+        ));
+    }
 
     Ok(())
 }
