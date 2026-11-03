@@ -196,9 +196,18 @@ export async function changeDatabase(): Promise<string | null> {
   return selected;
 }
 
-type FilterMode = "day" | "month";
+export type FilterMode = "all" | "day" | "month";
 
 function periodWindow(date: string, mode: FilterMode = "day") {
+  if (mode === "all") {
+    return {
+      start: null,
+      end: null,
+      dateStart: "",
+      dateEnd: "",
+    };
+  }
+
   const [year, month, day] = date.split("-").map(Number);
   if (mode === "month") {
     const startDate = new Date(year, month - 1, 1);
@@ -232,17 +241,14 @@ export async function listOrders(filters: {
     filters.date,
     filters.mode ?? "day",
   );
+  const byDate = filters.mode === "all" ? "" : ` AND o.criada_em >= $1 AND o.criada_em < $2`;
+  const taskDateFilter = filters.mode === "all" ? "" : ` AND x.data_referencia >= $3 AND x.data_referencia < $4`;
+  const params = filters.mode === "all"
+    ? [filters.status ?? "", filters.query ?? "", filters.task ?? 0]
+    : [start, end, dateStart, dateEnd, filters.status ?? "", filters.query ?? "", filters.task ?? 0];
   return d.select<Order[]>(
-    `SELECT o.*,m.nome municipio,COALESCE(SUM(l.quantidade),0) total_trabalhos,GROUP_CONCAT(DISTINCT t.nome) task_names FROM ordens_servico o JOIN municipios m ON m.id=o.municipio_id LEFT JOIN lancamentos_trabalho l ON l.ordem_servico_id=o.id AND l.data_referencia >= $3 AND l.data_referencia < $4 LEFT JOIN tipos_tarefa t ON t.id=l.tipo_tarefa_id WHERE o.arquivada_em IS NULL AND o.criada_em >= $1 AND o.criada_em < $2 AND ($5='' OR o.status=$5) AND ($6='' OR o.codigo_os LIKE '%'||$6||'%' OR m.nome LIKE '%'||$6||'%') AND ($7=0 OR EXISTS(SELECT 1 FROM lancamentos_trabalho x WHERE x.ordem_servico_id=o.id AND x.tipo_tarefa_id=$7 AND x.data_referencia >= $3 AND x.data_referencia < $4)) GROUP BY o.id ORDER BY o.atualizada_em DESC`,
-    [
-      start,
-      end,
-      dateStart,
-      dateEnd,
-      filters.status ?? "",
-      filters.query ?? "",
-      filters.task ?? 0,
-    ],
+    `SELECT o.*,m.nome municipio,COALESCE(SUM(l.quantidade),0) total_trabalhos,GROUP_CONCAT(DISTINCT t.nome) task_names FROM ordens_servico o JOIN municipios m ON m.id=o.municipio_id LEFT JOIN lancamentos_trabalho l ON l.ordem_servico_id=o.id${filters.mode === "all" ? "" : " AND l.data_referencia >= $3 AND l.data_referencia < $4"} LEFT JOIN tipos_tarefa t ON t.id=l.tipo_tarefa_id WHERE o.arquivada_em IS NULL${byDate} AND ($${filters.mode === "all" ? 1 : 5}='' OR o.status=$${filters.mode === "all" ? 1 : 5}) AND ($${filters.mode === "all" ? 2 : 6}='' OR o.codigo_os LIKE '%'||$${filters.mode === "all" ? 2 : 6}||'%' OR m.nome LIKE '%'||$${filters.mode === "all" ? 2 : 6}||'%') AND ($${filters.mode === "all" ? 3 : 7}=0 OR EXISTS(SELECT 1 FROM lancamentos_trabalho x WHERE x.ordem_servico_id=o.id AND x.tipo_tarefa_id=$${filters.mode === "all" ? 3 : 7}${taskDateFilter})) GROUP BY o.id ORDER BY o.atualizada_em DESC`,
+    params,
   );
 }
 export async function listArchivedOrders(filters: {
@@ -257,17 +263,14 @@ export async function listArchivedOrders(filters: {
     filters.date,
     filters.mode ?? "day",
   );
+  const byDate = filters.mode === "all" ? "" : ` AND o.arquivada_em >= $1 AND o.arquivada_em < $2`;
+  const taskDateFilter = filters.mode === "all" ? "" : ` AND x.data_referencia >= $3 AND x.data_referencia < $4`;
+  const params = filters.mode === "all"
+    ? [filters.status ?? "", filters.query ?? "", filters.task ?? 0]
+    : [start, end, dateStart, dateEnd, filters.status ?? "", filters.query ?? "", filters.task ?? 0];
   return d.select<Order[]>(
-    `SELECT o.*,m.nome municipio,COALESCE(SUM(l.quantidade),0) total_trabalhos,GROUP_CONCAT(DISTINCT t.nome) task_names FROM ordens_servico o JOIN municipios m ON m.id=o.municipio_id LEFT JOIN lancamentos_trabalho l ON l.ordem_servico_id=o.id AND l.data_referencia >= $3 AND l.data_referencia < $4 LEFT JOIN tipos_tarefa t ON t.id=l.tipo_tarefa_id WHERE o.arquivada_em IS NOT NULL AND o.arquivada_em >= $1 AND o.arquivada_em < $2 AND ($5='' OR o.status=$5) AND ($6='' OR o.codigo_os LIKE '%'||$6||'%' OR m.nome LIKE '%'||$6||'%') AND ($7=0 OR EXISTS(SELECT 1 FROM lancamentos_trabalho x WHERE x.ordem_servico_id=o.id AND x.tipo_tarefa_id=$7 AND x.data_referencia >= $3 AND x.data_referencia < $4)) GROUP BY o.id ORDER BY o.arquivada_em DESC, o.atualizada_em DESC`,
-    [
-      start,
-      end,
-      dateStart,
-      dateEnd,
-      filters.status ?? "",
-      filters.query ?? "",
-      filters.task ?? 0,
-    ],
+    `SELECT o.*,m.nome municipio,COALESCE(SUM(l.quantidade),0) total_trabalhos,GROUP_CONCAT(DISTINCT t.nome) task_names FROM ordens_servico o JOIN municipios m ON m.id=o.municipio_id LEFT JOIN lancamentos_trabalho l ON l.ordem_servico_id=o.id${filters.mode === "all" ? "" : " AND l.data_referencia >= $3 AND l.data_referencia < $4"} LEFT JOIN tipos_tarefa t ON t.id=l.tipo_tarefa_id WHERE o.arquivada_em IS NOT NULL${byDate} AND ($${filters.mode === "all" ? 1 : 5}='' OR o.status=$${filters.mode === "all" ? 1 : 5}) AND ($${filters.mode === "all" ? 2 : 6}='' OR o.codigo_os LIKE '%'||$${filters.mode === "all" ? 2 : 6}||'%' OR m.nome LIKE '%'||$${filters.mode === "all" ? 2 : 6}||'%') AND ($${filters.mode === "all" ? 3 : 7}=0 OR EXISTS(SELECT 1 FROM lancamentos_trabalho x WHERE x.ordem_servico_id=o.id AND x.tipo_tarefa_id=$${filters.mode === "all" ? 3 : 7}${taskDateFilter})) GROUP BY o.id ORDER BY o.arquivada_em DESC, o.atualizada_em DESC`,
+    params,
   );
 }
 export async function listTaskOrders(filters: {
@@ -281,6 +284,12 @@ export async function listTaskOrders(filters: {
     filters.date,
     filters.mode ?? "day",
   );
+  if (filters.mode === "all") {
+    return d.select<Order[]>(
+      `SELECT o.*,m.nome municipio,COALESCE(SUM(l.quantidade),0) total_trabalhos,GROUP_CONCAT(DISTINCT t.nome) task_names FROM ordens_servico o JOIN municipios m ON m.id=o.municipio_id JOIN lancamentos_trabalho l ON l.ordem_servico_id=o.id JOIN tipos_tarefa t ON t.id=l.tipo_tarefa_id WHERE o.arquivada_em IS NULL AND ($1='' OR o.status=$1) AND ($2=0 OR l.tipo_tarefa_id=$2) GROUP BY o.id ORDER BY o.atualizada_em DESC`,
+      [filters.status ?? "", filters.task ?? 0],
+    );
+  }
   return d.select<Order[]>(
     `SELECT o.*,m.nome municipio,COALESCE(SUM(l.quantidade),0) total_trabalhos,GROUP_CONCAT(DISTINCT t.nome) task_names FROM ordens_servico o JOIN municipios m ON m.id=o.municipio_id JOIN lancamentos_trabalho l ON l.ordem_servico_id=o.id AND l.data_referencia >= $1 AND l.data_referencia < $2 JOIN tipos_tarefa t ON t.id=l.tipo_tarefa_id WHERE o.arquivada_em IS NULL AND ($3='' OR o.status=$3) AND ($4=0 OR l.tipo_tarefa_id=$4) GROUP BY o.id ORDER BY o.atualizada_em DESC`,
     [dateStart, dateEnd, filters.status ?? "", filters.task ?? 0],

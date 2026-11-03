@@ -17,7 +17,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { Order, StatusOS } from "../../db";
+import type { FilterMode, Order, StatusOS } from "../../db";
 import type {
   MunicipalityOrderCount,
   ReturnCount,
@@ -48,7 +48,7 @@ type Props = {
   totalReturns: number;
   municipalityOrders: MunicipalityOrderCount[];
   selectedDate: string;
-  filterMode?: "day" | "month";
+  filterMode?: FilterMode;
   taskQuantities: TaskQuantity[];
   returnStats: ReturnCount[];
   setView: (
@@ -80,7 +80,12 @@ export default function DashboardPage({
   openMunicipalityOrders,
   beginOrder,
 }: Props) {
-  const periodLabel = filterMode === "day" ? "visão diária" : "visão mensal";
+  const periodLabel =
+    filterMode === "all"
+      ? "visão geral"
+      : filterMode === "day"
+        ? "visão diária"
+        : "visão mensal";
   return (
     <div className="content">
       <div className="welcome-row">

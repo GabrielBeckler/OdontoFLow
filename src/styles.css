@@ -197,6 +197,7 @@ textarea:focus-visible {
   background: #48b991;
   box-shadow: 0 0 0 4px rgba(72, 185, 145, 0.12);
 }
+
 .local-card b,
 .user-chip b {
   font-size: 11px;
@@ -211,7 +212,7 @@ textarea:focus-visible {
 }
 .user-chip {
   border: 1px solid transparent;
-  padding: 8px 6px 0;
+  padding: 8px 6px 8px;
   display: flex;
   align-items: center;
   gap: 9px;
@@ -287,19 +288,39 @@ textarea:focus-visible {
   border: 1px solid var(--border-subtle);
   border-radius: 9px;
   background: var(--bg-surface);
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   padding: 0 11px;
   gap: 7px;
   color: var(--text-secondary);
   cursor: pointer;
   font:
-    11px system-ui,
+    600 11px system-ui,
     sans-serif;
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.02);
 }
 .period-control span {
   color: var(--text-primary);
   font-size: 11px;
+}
+.period-select {
+  min-width: 112px;
+  appearance: none;
+  text-align: left;
+  padding-right: 28px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+    linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) calc(50% - 2px),
+    calc(100% - 9px) calc(50% - 2px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+.period-select option {
+  color: var(--text-primary);
+  background: var(--bg-surface);
 }
 .icon-button {
   border: 0;

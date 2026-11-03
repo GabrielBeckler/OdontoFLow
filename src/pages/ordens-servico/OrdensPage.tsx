@@ -1,5 +1,5 @@
 import { ArrowDownToLine, FilePlus2, Search } from "lucide-react";
-import type { Order, Task, StatusOS } from "../../db";
+import type { FilterMode, Order, Task, StatusOS } from "../../db";
 import OrderTable from "../../components/OrderTable";
 
 const statuses: StatusOS[] = ["Em andamento", "Finalizado", "Retorno"];
@@ -14,7 +14,7 @@ type Props = {
   orders: Order[];
   tasks: Task[];
   selectedDate: string;
-  filterMode?: "day" | "month";
+  filterMode?: FilterMode;
   query: string;
   setQuery: (value: string) => void;
   statusFilter: string;
@@ -81,13 +81,9 @@ export default function OrdensPage({
           <div>
             <h3>{orders.length} ordens de serviço</h3>
             <p>
-              {filterMode === "day" ? "Data" : "Mês"}:{" "}
-              {filterMode === "day"
-                ? fmtReferenceDate(selectedDate)
-                : new Date(`${selectedDate.slice(0, 7)}-01`).toLocaleDateString(
-                    "pt-BR",
-                    { month: "long", year: "numeric" },
-                  )}
+              {filterMode === "all"
+                ? "Período: Todos"
+                : `${filterMode === "day" ? "Data" : "Mês"}: ${filterMode === "day" ? fmtReferenceDate(selectedDate) : new Date(`${selectedDate.slice(0, 7)}-01`).toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}`}
             </p>
           </div>
           <button className="outline-button" onClick={() => window.print()}>

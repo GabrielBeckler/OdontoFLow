@@ -42,6 +42,7 @@ import {
   listNotificationOrders,
   listTaskOrders,
   listTasks,
+  type FilterMode,
   type Item,
   type Order,
   type NotificationOrder,
@@ -123,8 +124,12 @@ const fmtMonthLabel = (s: string) => {
     year: "numeric",
   });
 };
-const formatPeriodLabel = (date: string, mode: "day" | "month") =>
-  mode === "day" ? fmtReferenceDate(date) : fmtMonthLabel(date);
+const formatPeriodLabel = (date: string, mode: FilterMode) =>
+  mode === "all"
+    ? "Todos"
+    : mode === "day"
+      ? fmtReferenceDate(date)
+      : fmtMonthLabel(date);
 const errorText = (e: unknown) => {
   const message = e instanceof Error ? e.message : String(e);
   if (
@@ -140,7 +145,7 @@ const errorText = (e: unknown) => {
 export default function App() {
   const now = new Date();
   const [view, setView] = useState<View>("dashboard");
-  const [filterMode, setFilterMode] = useState<"day" | "month">("month");
+  const [filterMode, setFilterMode] = useState<FilterMode>("month");
   const [selectedDate, setSelectedDate] = useState(() =>
     localDateInput(startOfMonth(now)),
   );
@@ -919,10 +924,32 @@ export default function App() {
           </div>
           <div className="top-actions">
             {showPeriodSelector && (
+            <>
+            <select
+              id="filter-period"
+              className="period-control period-select"
+              aria-label={`Selecionar período, atualmente ${formatPeriodLabel(selectedDate, filterMode)}`}
+              value={filterMode}
+              onChange={(event) => {
+                const nextMode = event.target.value as FilterMode;
+                setFilterMode(nextMode);
+
+                if (nextMode !== "all") {
+                  setCalendarDraft(selectedDate);
+                }
+              }}
+            >
+              <option value="all">Todos</option>
+              <option value="month">Mês</option>
+              <option value="day">Dia</option>
+            </select>
+
+            {filterMode !== "all" && (
               <button
+                id="filter-period-date"
                 className="period-control"
                 type="button"
-                aria-label={`Selecionar período, atualmente ${formatPeriodLabel(selectedDate, filterMode)}`}
+                aria-label={`Selecionar data do período, atualmente ${formatPeriodLabel(selectedDate, filterMode)}`}
                 onClick={() => {
                   setCalendarDraft(selectedDate);
                   setCalendarOpen(true);
@@ -931,6 +958,8 @@ export default function App() {
                 <CalendarDays size={16} />
                 <span>{formatPeriodLabel(selectedDate, filterMode)}</span>
               </button>
+            )}
+          </>
             )}
             {showPeriodSelector && filterMode === "day" && (
               <button

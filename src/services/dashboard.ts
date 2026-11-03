@@ -1,5 +1,5 @@
 import { db } from "../db";
-import type { StatusOS } from "../db";
+import type { FilterMode, StatusOS } from "../db";
 import statusCountsSql from "./dashboard-status-counts.sql?raw";
 
 export type TaskQuantity = { id: number; name: string; value: number };
@@ -14,9 +14,11 @@ export type MunicipalityOrderCount = {
   returns: number;
 };
 
-type FilterMode = "day" | "month";
-
 function periodBounds(date: string, mode: FilterMode = "day") {
+  if (mode === "all") {
+    return { start: null, end: null, dateStart: "", dateEnd: "" };
+  }
+
   const [year, month, day] = date.split("-").map(Number);
   if (mode === "month") {
     const startDate = new Date(year, month - 1, 1);
@@ -43,6 +45,17 @@ export async function listMunicipalityOrderCounts(
   mode: FilterMode = "day",
 ): Promise<MunicipalityOrderCount[]> {
   const { start, end } = periodBounds(date, mode);
+  if (mode === "all") {
+    return (await db()).select<MunicipalityOrderCount[]>(
+      `SELECT m.id,m.nome name,COUNT(o.id) total,
+        SUM(CASE WHEN o.status='Em andamento' THEN 1 ELSE 0 END) inProgress,
+        SUM(CASE WHEN o.status='Finalizado' THEN 1 ELSE 0 END) finalized,
+        SUM(CASE WHEN o.status='Retorno' THEN 1 ELSE 0 END) returns
+       FROM ordens_servico o JOIN municipios m ON m.id=o.municipio_id
+       WHERE o.arquivada_em IS NULL
+       GROUP BY m.id ORDER BY total DESC,m.nome`,
+    );
+  }
   return (await db()).select<MunicipalityOrderCount[]>(
     `SELECT m.id,m.nome name,COUNT(o.id) total,
       SUM(CASE WHEN o.status='Em andamento' THEN 1 ELSE 0 END) inProgress,
@@ -60,6 +73,11 @@ export async function listTaskQuantities(
   mode: FilterMode = "day",
 ): Promise<TaskQuantity[]> {
   const { dateStart, dateEnd } = periodBounds(date, mode);
+  if (mode === "all") {
+    return (await db()).select<TaskQuantity[]>(
+      `SELECT t.id,t.nome name,COALESCE(SUM(l.quantidade),0) value FROM tipos_tarefa t LEFT JOIN (SELECT l.tipo_tarefa_id,SUM(l.quantidade) quantidade FROM lancamentos_trabalho l JOIN ordens_servico o ON o.id=l.ordem_servico_id AND o.arquivada_em IS NULL GROUP BY l.tipo_tarefa_id) l ON l.tipo_tarefa_id=t.id WHERE t.ativo=1 GROUP BY t.id ORDER BY t.nome`,
+    );
+  }
   return (await db()).select<TaskQuantity[]>(
     `SELECT t.id,t.nome name,COALESCE(SUM(l.quantidade),0) value FROM tipos_tarefa t LEFT JOIN (SELECT l.tipo_tarefa_id,SUM(l.quantidade) quantidade FROM lancamentos_trabalho l JOIN ordens_servico o ON o.id=l.ordem_servico_id AND o.arquivada_em IS NULL WHERE l.data_referencia >= $1 AND l.data_referencia < $2 GROUP BY l.tipo_tarefa_id) l ON l.tipo_tarefa_id=t.id WHERE t.ativo=1 GROUP BY t.id ORDER BY t.nome`,
     [dateStart, dateEnd],
@@ -71,6 +89,11 @@ export async function listStatusCounts(
   mode: FilterMode = "day",
 ): Promise<StatusCount[]> {
   const { end } = periodBounds(date, mode);
+  if (mode === "all") {
+    return (await db()).select<StatusCount[]>(
+      `SELECT COALESCE((SELECT h.para_status FROM historico_status_os h WHERE h.ordem_servico_id = o.id ORDER BY h.alterado_em DESC, h.id DESC LIMIT 1), o.status) AS name, COUNT(*) AS value FROM ordens_servico o WHERE o.arquivada_em IS NULL GROUP BY name ORDER BY name`,
+    );
+  }
   return (await db()).select<StatusCount[]>(
     statusCountsSql,
     [end],
@@ -82,6 +105,11 @@ export async function listReturnCounts(
   mode: FilterMode = "day",
 ): Promise<ReturnCount[]> {
   const { start, end } = periodBounds(date, mode);
+  if (mode === "all") {
+    return (await db()).select<ReturnCount[]>(
+      "SELECT motivo name,COUNT(*) value FROM historico_retornos GROUP BY motivo ORDER BY value DESC",
+    );
+  }
   return (await db()).select<ReturnCount[]>(
     "SELECT motivo name,COUNT(*) value FROM historico_retornos WHERE registrado_em >= $1 AND registrado_em < $2 GROUP BY motivo ORDER BY value DESC",
     [start, end],
