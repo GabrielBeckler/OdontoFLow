@@ -4,7 +4,27 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   clearScreen: false,
-  server: { host: '0.0.0.0', port: 1420, strictPort: true },
+
+  server: {
+    host: '0.0.0.0',
+    port: 1420,
+    strictPort: true,
+
+    watch: {
+      ignored: [
+        '**/src-tauri/target/**',
+        '**/target/**',
+        '**/node_modules/**',
+      ],
+    },
+  },
+
   envPrefix: ['VITE_', 'TAURI_'],
-  build: { target: process.env.TAURI_ENV_PLATFORM === 'windows' ? 'chrome105' : 'safari13' },
+
+  build: {
+    target:
+      process.env.TAURI_ENV_PLATFORM === 'windows'
+        ? 'chrome105'
+        : 'safari13',
+  },
 });
