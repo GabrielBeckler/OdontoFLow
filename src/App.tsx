@@ -1013,6 +1013,7 @@ export default function App() {
             >
               {view === "dashboard" && (
                 <DashboardPage
+                  displayName={displayName}
                   orders={orders}
                   totalWork={totalWork}
                   countByStatus={countByStatus}

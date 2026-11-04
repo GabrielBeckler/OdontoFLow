@@ -42,6 +42,7 @@ const fmtReferenceDate = (s: string) => {
 };
 
 type Props = {
+  displayName: string;
   orders: Order[];
   totalWork: number;
   countByStatus: { name: StatusOS; value: number }[];
@@ -66,6 +67,7 @@ type Props = {
 };
 
 export default function DashboardPage({
+  displayName,
   orders,
   totalWork,
   countByStatus,
@@ -91,7 +93,7 @@ export default function DashboardPage({
       <div className="welcome-row">
         <div>
           <h2>
-            Olá, Gabriel <span>✦</span>
+            Olá, {displayName?.trim().split(/\s+/)[0]} <span>✦</span>
           </h2>
           <p>
             Acompanhe a produção do seu laboratório em um só lugar ·{" "}
