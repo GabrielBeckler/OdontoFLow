@@ -157,6 +157,8 @@ const ALLOWED_WRITE_QUERIES: &[&str] = &[
     "UPDATE ordens_servico SET atualizada_em=$1 WHERE id=$2",
     "UPDATE ordens_servico SET arquivada_em=$1,atualizada_em=$1 WHERE id=$2",
     "INSERT INTO historico_alteracoes_os(ordem_servico_id,operacao,valores_anteriores) VALUES($1,'ARQUIVAMENTO',$2)",
+    "UPDATE ordens_servico SET arquivada_em=NULL,atualizada_em=$1 WHERE id=$2 AND arquivada_em IS NOT NULL",
+    "INSERT INTO historico_alteracoes_os(ordem_servico_id,operacao,valores_anteriores,valores_novos,registrado_em) VALUES($1,'RESTAURACAO',$2,$3,$4)",
     "UPDATE ordens_servico SET status=$1,atualizada_em=$2 WHERE id=$3 AND status=$4",
     "INSERT INTO historico_status_os(ordem_servico_id,de_status,para_status,alterado_em) SELECT $1,$2,$3,$4 WHERE EXISTS(SELECT 1 FROM ordens_servico WHERE id=$1 AND status=$3 AND atualizada_em=$4)",
     "INSERT INTO historico_alteracoes_os(ordem_servico_id,operacao,valores_anteriores,valores_novos,registrado_em) SELECT $1,'EDICAO',$2,$3,$4 WHERE EXISTS(SELECT 1 FROM ordens_servico WHERE id=$1 AND status=$5 AND atualizada_em=$4)",
@@ -1081,6 +1083,31 @@ mod tests {
             MAX_ORDER_ITEM_QUANTITY
         ))])
         .is_ok());
+    }
+
+    #[test]
+    fn restore_write_queries_are_allowed() {
+        let restore_update = statement(
+            "UPDATE ordens_servico SET arquivada_em=NULL,atualizada_em=$1 WHERE id=$2 AND arquivada_em IS NOT NULL",
+            vec![
+                value(serde_json::json!("2026-05-01T00:00:00.000Z")),
+                value(serde_json::json!(7)),
+            ],
+            None,
+        );
+        let restore_history = statement(
+            "INSERT INTO historico_alteracoes_os(ordem_servico_id,operacao,valores_anteriores,valores_novos,registrado_em) VALUES($1,'RESTAURACAO',$2,$3,$4)",
+            vec![
+                value(serde_json::json!(7)),
+                value(serde_json::json!({"id":7,"arquivada_em":"2026-05-01T00:00:00.000Z"})),
+                value(serde_json::json!({"id":7,"arquivada_em":null,"atualizada_em":"2026-05-01T00:00:00.000Z"})),
+                value(serde_json::json!("2026-05-01T00:00:00.000Z")),
+            ],
+            None,
+        );
+
+        assert!(validate_write_statements(&[restore_update]).is_ok());
+        assert!(validate_write_statements(&[restore_history]).is_ok());
     }
 
     #[test]

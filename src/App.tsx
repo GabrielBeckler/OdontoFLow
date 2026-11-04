@@ -1880,6 +1880,13 @@ export default function App() {
                     </button>
                     <button
                       type="button"
+                      className="danger-link"
+                      onClick={() => void archiveOrder(editing)}
+                    >
+                      <Archive size={15} /> Arquivar OS
+                    </button>
+                    <button
+                      type="button"
                       className="primary-button"
                       onClick={enterOrderEditMode}
                     >
